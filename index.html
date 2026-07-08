@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบบันทึกข้อมูลงานขายและโครงการ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Sarabun', sans-serif; background-color: #f8fafc; }
+        .tab-active { border-bottom: 3px solid #1e40af; color: #1e40af; font-weight: 700; }
+        th, td { white-space: nowrap; }
+        .sticky-col { position: sticky; right: 0; background-color: #ffffff; border-left: 1px solid #e2e8f0; box-shadow: -2px 0 5px rgba(0,0,0,0.03); z-index: 5;}
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .spinner-border { border-top-color: transparent; border-right-color: transparent; }
+        select[multiple] { scrollbar-width: thin; padding: 4px; border-radius: 6px; font-size: 0.75rem; }
+        select[multiple] option { padding: 4px 8px; margin-bottom: 2px; border-radius: 4px; cursor: pointer; }
+        select[multiple] option:checked { background-color: #e0e7ff; color: #3730a3; font-weight: 600; }
+        
+        .enterprise-table th { background-color: #f8fafc; color: #475569; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; padding: 12px 16px; border-bottom: 2px solid #e2e8f0; }
+        .enterprise-table td { padding: 10px 16px; font-size: 0.875rem; color: #334155; border-bottom: 1px solid #f1f5f9; }
+        .enterprise-table tr:hover td { background-color: #f8fafc; }
+        .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); }
+        .table-link { display: block; width: 100%; height: 100%; text-decoration: none; transition: all 0.2s ease; border-bottom: 1px dashed transparent; }
+        .table-link:hover { border-bottom-color: currentColor; }
+    </style>
+</head>
+<body class="text-slate-800 h-screen flex flex-col overflow-hidden" id="main-body">
+
+    <!-- LOGIN OVERLAY -->
+    <div id="loginOverlay" class="fixed inset-0 bg-slate-900 z-[100] flex items-center justify-center transition-opacity duration-300">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 md:p-10 w-11/12 max-w-md relative overflow-hidden">
+            <div class="absolute top-0 left-0 right-0 h-1.5 bg-blue-700"></div>
+            <div class="absolute top-3 right-3 z-50"><button type="button" onclick="document.getElementById('cloudModal').classList.remove('hidden')" class="text-slate-400 hover:text-blue-600 transition p-2"><i class="fas fa-cog text-xl"></i></button></div>
+            <div class="text-center mb-8 mt-2">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 text-blue-700 mb-4 mt-2"><i class="fas fa-briefcase text-3xl"></i></div>
+                <h2 class="text-2xl font-bold text-slate-800 tracking-wide">Sales Analytics</h2>
+                <p class="text-sm text-slate-500 mt-1">Enterprise Management System</p>
+            </div>
+            <form id="loginForm" onsubmit="event.preventDefault(); handleLogin();" class="space-y-5">
+                <div><label class="block text-xs font-bold text-slate-600 uppercase mb-1 tracking-wider">Username</label><div class="relative"><span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400"><i class="fas fa-user"></i></span><input type="text" id="loginUsername" required class="w-full bg-slate-50 pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-600 outline-none transition" placeholder="Enter username"></div></div>
+                <div><label class="block text-xs font-bold text-slate-600 uppercase mb-1 tracking-wider">Password</label><div class="relative"><span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400"><i class="fas fa-lock"></i></span><input type="password" id="loginPassword" required class="w-full bg-slate-50 pl-10 pr-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-600 outline-none transition" placeholder="Enter password"></div></div>
+                <div id="loginError" class="hidden bg-red-50 text-red-600 text-xs font-bold p-3 rounded-lg border border-red-100 text-center"></div>
+                <button type="submit" id="btnLogin" class="w-full bg-blue-700 hover:bg-blue-800 text-white font-bold py-2.5 rounded-lg shadow transition-all flex items-center justify-center mt-4">Sign In</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="appContainer" class="hidden h-screen flex flex-col w-full">
+        <!-- Header -->
+        <header class="bg-blue-900 text-white shadow-md shrink-0 border-b border-blue-800">
+            <div class="container mx-auto px-6 py-3 flex flex-col sm:flex-row justify-between items-center gap-3">
+                <h1 class="text-xl font-bold tracking-wide flex items-center"><i class="fas fa-chart-line text-blue-400 mr-2"></i> Sales<span class="font-light ml-1 text-blue-200">Analytics</span></h1>
+                <div class="flex items-center space-x-3 text-sm flex-wrap justify-center">
+                    <span id="userBadge" class="bg-blue-800 text-blue-100 px-3 py-1 rounded-md text-xs font-medium border border-blue-700"><i class="fas fa-user-circle mr-1 text-blue-400"></i> <span id="displayUserName">Admin</span></span>
+                    <span id="syncStatus" class="bg-slate-600 text-white px-3 py-1 rounded-md text-xs font-semibold"><i class="fas fa-hdd mr-1"></i> ออฟไลน์</span>
+                    <button onclick="pullFromCloud()" id="btnPull" class="hidden bg-emerald-600 hover:bg-emerald-500 px-3 py-1 rounded-md text-xs font-semibold transition-colors duration-200"><i class="fas fa-sync-alt mr-1"></i> Sync Data</button>
+                    <button onclick="document.getElementById('cloudModal').classList.remove('hidden')" class="text-blue-300 hover:text-white transition-colors duration-200" title="ตั้งค่าระบบ"><i class="fas fa-cog"></i></button>
+                    <button onclick="handleLogout()" class="text-blue-300 hover:text-red-400 transition-colors duration-200 ml-2" title="ออกจากระบบ"><i class="fas fa-sign-out-alt"></i></button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="bg-white shadow-sm z-10 relative shrink-0 border-b border-slate-200">
+            <div class="container mx-auto px-6 flex space-x-8">
+                <button onclick="switchTab('formTab')" id="btn-formTab" class="py-3 px-1 tab-active hover:text-blue-700 focus:outline-none transition-colors text-sm"><i class="fas fa-edit mr-1.5"></i> Data Entry</button>
+                <button onclick="switchTab('dashboardTab')" id="btn-dashboardTab" class="py-3 px-1 text-slate-500 hover:text-blue-700 focus:outline-none transition-colors text-sm"><i class="fas fa-chart-pie mr-1.5"></i> Executive Dashboard</button>
+            </div>
+        </nav>
+
+        <main class="flex-grow container mx-auto px-4 sm:px-6 py-6 overflow-auto relative">
+            <!-- ==================== Tab 1: Form ==================== -->
+            <div id="formTab" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 md:p-8">
+                <div class="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
+                    <h2 class="text-2xl font-bold text-gray-800">ฟอร์มบันทึกโครงการ</h2>
+                    <div class="flex space-x-3">
+                        <button type="button" onclick="cancelEdit()" id="cancelBtn" class="hidden bg-gray-100 text-gray-600 px-5 py-2 rounded-xl font-medium hover:bg-gray-200 transition"><i class="fas fa-times mr-1"></i> ยกเลิก</button>
+                        <button type="button" onclick="saveData()" id="saveBtn" class="bg-blue-600 text-white px-5 py-2 rounded-xl font-medium shadow-md shadow-blue-200 hover:bg-blue-700 hover:shadow-lg transition-all"><i class="fas fa-save mr-1"></i> บันทึกข้อมูล</button>
+                    </div>
+                </div>
+
+                <div class="mb-8 p-5 bg-gradient-to-br from-yellow-50 to-orange-50 border border-yellow-200/60 rounded-2xl shadow-sm">
+                    <h3 class="text-md font-bold text-yellow-800 mb-3"><i class="fas fa-bolt text-yellow-500 mr-2"></i>ระบบช่วยกรอกข้อมูลอัตโนมัติ (Auto-fill)</h3>
+                    <div class="space-y-4">
+                        <div class="flex flex-col md:flex-row gap-3 items-start"><textarea id="pasteTextInput" rows="2" class="w-full md:w-2/3 border-gray-200 rounded-xl shadow-inner border p-3 text-sm focus:ring-2 focus:ring-yellow-400 outline-none transition" placeholder="วางข้อความที่คัดลอกมาตรงนี้..."></textarea><button type="button" onclick="extractFromText()" class="bg-yellow-500 text-white px-5 py-3 rounded-xl font-medium shadow-md shadow-yellow-200 hover:bg-yellow-600 transition-all text-sm flex items-center w-full md:w-auto justify-center h-full"><i class="fas fa-paste mr-2"></i> ดึงจากข้อความ</button></div>
+                        <span id="autoFillStatus" class="text-sm font-medium bg-white px-4 py-2 rounded-xl border border-gray-100 shadow-sm hidden inline-block mt-2"></span>
+                    </div>
+                </div>
+                
+                <form id="projectForm" class="space-y-10">
+                    <div class="bg-gray-50/50 p-5 rounded-2xl border border-gray-100"><h3 class="text-lg font-bold text-blue-800 mb-4 flex items-center"><span class="bg-blue-100 text-blue-600 w-8 h-8 rounded-full flex items-center justify-center mr-3 text-sm">1</span> ข้อมูลทั่วไปและข้อมูลลูกค้า</h3><div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-5" id="group1-container"></div></div>
+                    <div class="bg-gray-50/50 p-5 rounded-2xl border border-gray-100"><h3 class="text-lg font-bold text-blue-800 mb-4 flex items-center"><span class="bg-blue-100 text-blue-600 w-8 h-8 rounded-full flex items-center justify-center mr-3 text-sm">2</span> ข้อมูลงานขายและผลิตภัณฑ์</h3><div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-5" id="group2-container"></div></div>
+                    <div class="bg-gray-50/50 p-5 rounded-2xl border border-gray-100"><h3 class="text-lg font-bold text-blue-800 mb-4 flex items-center"><span class="bg-blue-100 text-blue-600 w-8 h-8 rounded-full flex items-center justify-center mr-3 text-sm">3</span> ปริมาณความต้องการ (Opportunity)</h3><div class="grid grid-cols-1 md:grid-cols-4 gap-5" id="group3-container"></div></div>
+                    <div class="bg-gray-50/50 p-5 rounded-2xl border border-gray-100"><h3 class="text-lg font-bold text-blue-800 mb-4 flex items-center"><span class="bg-blue-100 text-blue-600 w-8 h-8 rounded-full flex items-center justify-center mr-3 text-sm">4</span> ราคา เงื่อนไข และสถานะการขาย</h3><div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-5" id="group4-container"></div></div>
+                    <div class="bg-gray-50/50 p-5 rounded-2xl border border-gray-100"><h3 class="text-lg font-bold text-blue-800 mb-4 flex items-center"><span class="bg-blue-100 text-blue-600 w-8 h-8 rounded-full flex items-center justify-center mr-3 text-sm">5</span> คาดการณ์การใช้สินค้า (Forecast)</h3><div class="grid grid-cols-2 md:grid-cols-6 gap-3" id="group5-container"></div></div>
+                </form>
+            </div>
+
+            <!-- ==================== Tab 2: Dashboard ==================== -->
+            <div id="dashboardTab" class="hidden space-y-6">
+                
+                <!-- Header Actions -->
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center bg-transparent mb-2 gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800 tracking-tight">Executive Dashboard</h2>
+                        <p class="text-sm text-slate-500">รายงานสรุปผลการดำเนินงานและสถานะการขาย</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <label for="importExcelBtn" class="bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded shadow-sm hover:bg-slate-50 transition cursor-pointer text-xs font-medium flex items-center"><i class="fas fa-file-import text-slate-400 mr-1.5"></i> Import</label>
+                        <input type="file" id="importExcelBtn" class="hidden" accept=".xlsx, .xls, .csv" onchange="importFromExcel(event)">
+                        <button onclick="exportToExcel()" class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded shadow-sm hover:bg-emerald-100 transition text-xs font-medium flex items-center"><i class="fas fa-file-export mr-1.5"></i> Export All</button>
+                        <button onclick="clearData()" class="bg-white border border-red-200 text-red-600 px-3 py-1.5 rounded shadow-sm hover:bg-red-50 transition text-xs font-medium flex items-center"><i class="fas fa-trash-alt mr-1.5"></i> Clear Data</button>
+                    </div>
+                </div>
+
+                <!-- Control Panel (Filters) -->
+                <div class="bg-white rounded-xl card-shadow border border-slate-200 p-4 relative">
+                    <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+                        <h3 class="font-bold text-slate-700 text-sm uppercase tracking-wider"><i class="fas fa-filter text-blue-600 mr-2"></i>Global Filters</h3>
+                        <div class="flex items-center gap-3">
+                            <span class="text-[10px] text-slate-400"><i class="fas fa-mouse-pointer mr-1"></i>Ctrl/Cmd to multi-select</span>
+                            <button onclick="resetFilters()" class="text-xs text-blue-600 hover:text-blue-800 font-medium"><i class="fas fa-sync-alt mr-1"></i>Reset</button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Year</label><select multiple id="filterYear" onchange="updateCharts()" class="w-full bg-slate-50 border border-slate-200 text-xs outline-none h-20 focus:border-blue-500"></select></div>
+                        <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Month</label><select multiple id="filterMonth" onchange="updateCharts()" class="w-full bg-slate-50 border border-slate-200 text-xs outline-none h-20 focus:border-blue-500"></select></div>
+                        <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Customer Group</label><select multiple id="filterCG" onchange="updateCharts()" class="w-full bg-slate-50 border border-slate-200 text-xs outline-none h-20 focus:border-blue-500"></select></div>
+                        <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">SR Resp.</label><select multiple id="filterSR" onchange="updateCharts()" class="w-full bg-slate-50 border border-slate-200 text-xs outline-none h-20 focus:border-blue-500"></select></div>
+                        
+                        <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Product Spec</label><select multiple id="globalFilterSpec" onchange="updateCharts()" class="w-full bg-slate-50 border border-slate-200 text-xs outline-none h-20 focus:border-blue-500"></select></div>
+                        <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Product Category</label><select multiple id="globalFilterProduct" onchange="updateCharts()" class="w-full bg-slate-50 border border-slate-200 text-xs outline-none h-20 focus:border-blue-500"></select></div>
+                        <div><label class="block text-[10px] font-bold text-indigo-600 uppercase mb-1">Project Region</label><select multiple id="filterProjectRegion" onchange="updateCharts()" class="w-full bg-indigo-50/50 border border-indigo-100 text-indigo-800 text-xs outline-none h-20 focus:border-indigo-500"></select></div>
+                        <div><label class="block text-[10px] font-bold text-purple-600 uppercase mb-1">Dealer Region</label><select multiple id="filterDealerRegion" onchange="updateCharts()" class="w-full bg-purple-50/50 border border-purple-100 text-purple-800 text-xs outline-none h-20 focus:border-purple-500"></select></div>
+                    </div>
+                </div>
+
+                <!-- 3 Top KPIs -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white rounded-xl border border-slate-200 p-5 card-shadow flex items-center border-l-4 border-l-blue-600">
+                        <div class="p-3 rounded-lg bg-blue-50 text-blue-600 mr-4"><i class="fas fa-briefcase fa-2x"></i></div>
+                        <div><p class="text-slate-500 text-xs font-bold uppercase tracking-wider mb-0.5">Total Projects</p><p class="text-3xl font-extrabold text-slate-800" id="summaryTotalProjects">0</p></div>
+                    </div>
+                    <div class="bg-white rounded-xl border border-slate-200 p-5 card-shadow flex items-center border-l-4 border-l-slate-600">
+                        <div class="p-3 rounded-lg bg-slate-100 text-slate-600 mr-4"><i class="fas fa-layer-group fa-2x"></i></div>
+                        <div><p class="text-slate-500 text-xs font-bold uppercase tracking-wider mb-0.5">Total Opportunity (Sq.m.)</p><p class="text-3xl font-extrabold text-slate-800" id="summaryTotalSqm">0</p></div>
+                    </div>
+                    <div class="bg-white rounded-xl border border-slate-200 p-5 card-shadow flex items-center border-l-4 border-l-emerald-500 relative overflow-hidden">
+                        <div class="absolute -right-4 -top-4 text-emerald-50 opacity-50"><i class="fas fa-trophy" style="font-size: 6rem;"></i></div>
+                        <div class="p-3 rounded-lg bg-emerald-50 text-emerald-600 mr-4 z-10"><i class="fas fa-check-circle fa-2x"></i></div>
+                        <div class="z-10"><p class="text-emerald-700 text-xs font-bold uppercase tracking-wider mb-0.5">Total Win (Sq.m.)</p>
+                            <div class="flex items-baseline gap-2"><p class="text-3xl font-extrabold text-emerald-600" id="summaryWinSqm">0</p><span class="text-xs font-bold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded ml-2" id="summaryWinRate">0%</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ZONE 1: Executive Overview Charts -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="bg-white rounded-xl border border-slate-200 p-5 card-shadow lg:col-span-1 flex flex-col">
+                        <h3 class="font-bold text-slate-700 text-sm uppercase tracking-wider border-b border-slate-100 pb-3 mb-4">Overall Sales Status</h3>
+                        <div class="flex-grow w-full h-[300px] flex justify-center"><canvas id="statusChart"></canvas></div>
+                    </div>
+                    <div class="bg-white rounded-xl border border-slate-200 p-5 card-shadow lg:col-span-2 flex flex-col">
+                        <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+                            <h3 class="font-bold text-slate-700 text-sm uppercase tracking-wider">Quarterly Pipeline</h3>
+                            <span class="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded uppercase">Sq.m.</span>
+                        </div>
+                        <div class="flex-grow w-full h-[300px]"><canvas id="quarterlyChart"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- Forecast Full width -->
+                <div class="bg-white rounded-xl border border-slate-200 p-5 card-shadow w-full">
+                    <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+                        <h3 class="font-bold text-blue-800 text-sm uppercase tracking-wider"><i class="fas fa-chart-bar mr-2"></i>Long-term Forecast & Backlog</h3>
+                        <div class="flex gap-3">
+                            <select id="forecastCombinedYear" onchange="updateCharts()" class="border border-slate-300 rounded px-2 py-1 text-xs font-bold text-slate-700 bg-white outline-none">
+                                <option value="ALL">2025-2028</option><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option><option value="2028">2028</option>
+                            </select>
+                            <div class="flex items-center text-xs"><span class="w-3 h-3 bg-blue-500 rounded mr-1"></span> Total Forecast</div>
+                            <div class="flex items-center text-xs"><span class="w-3 h-3 bg-emerald-500 rounded mr-1"></span> Backlog (Win Only)</div>
+                        </div>
+                    </div>
+                    <div class="w-full overflow-x-auto">
+                        <div style="min-width: 1200px; height: 300px; position: relative;" id="forecastCombinedChartWrapper"><canvas id="forecastCombinedChart" style="position: absolute; left:0; top:0;"></canvas></div>
+                    </div>
+                </div>
+
+                <!-- ==================== ZONE: Backlog Breakdown Tables ==================== -->
+                
+                <!-- ALL PRODUCTS -->
+                <div class="bg-white rounded-xl border border-slate-200 card-shadow w-full mt-6" id="backlogTableWrapper">
+                    <div class="bg-emerald-50 border-b border-emerald-100 p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div><h3 class="font-bold text-emerald-800 text-lg flex items-center"><i class="fas fa-layer-group mr-2"></i>Backlog Breakdown (Win Only)</h3><p class="text-xs text-emerald-600 mt-1">รายละเอียดปริมาณ Backlog รวมทุกผลิตภัณฑ์ แยกตามรายภาคและปีที่คาดการณ์</p></div>
+                        <div class="flex items-center gap-3 w-full md:w-auto flex-wrap md:flex-nowrap">
+                            <div class="flex items-center bg-white border border-emerald-200 rounded text-sm overflow-hidden"><span class="bg-emerald-50 px-2 py-1.5 text-emerald-700 font-medium text-[10px] border-r border-emerald-200 uppercase">Product</span><select id="backlogFilterSpec" onchange="updateBacklogTable()" class="px-2 py-1.5 outline-none font-bold text-emerald-800 bg-white cursor-pointer text-xs min-w-[100px]"><option value="ALL">All Products</option></select></div>
+                            <div class="flex items-center bg-white border border-emerald-200 rounded text-sm overflow-hidden"><span class="bg-emerald-50 px-2 py-1.5 text-emerald-700 font-medium text-[10px] border-r border-emerald-200 uppercase">Year</span><select id="backlogFilterYear" onchange="updateBacklogTable()" class="px-2 py-1.5 outline-none font-bold text-emerald-800 bg-white cursor-pointer text-xs min-w-[80px]"><option value="ALL">2025-2028</option><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option><option value="2028">2028</option></select></div>
+                            <div class="flex items-center gap-1 export-buttons ml-auto md:ml-0">
+                                <button onclick="exportTableToExcel('backlogRegionTable', 'Backlog_Breakdown')" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-emerald-600 rounded hover:bg-emerald-50 transition" title="Export Excel"><i class="fas fa-file-excel"></i></button>
+                                <button onclick="exportSectionAsImage('backlogTableWrapper', 'Backlog_Breakdown', this)" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-blue-600 rounded hover:bg-blue-50 transition" title="Export Image"><i class="fas fa-image"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="w-full overflow-x-auto bg-white max-h-[500px]">
+                        <table class="w-full text-right enterprise-table" id="backlogRegionTable"><thead class="bg-slate-50 sticky top-0 z-20 shadow-sm"><tr id="backlogRegionTableHeadYears"></tr><tr id="backlogRegionTableHeadMonths"></tr></thead><tbody id="backlogRegionTableBody"></tbody></table>
+                    </div>
+                </div>
+
+                <!-- ZONE: Target Overview -->
+                <div class="bg-white rounded-xl border border-slate-200 card-shadow w-full mt-6" id="targetTableWrapper">
+                    <div class="bg-blue-50 border-b border-blue-100 p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div><h3 class="font-bold text-blue-800 text-lg flex items-center"><i class="fas fa-bullseye mr-2"></i>Target Overview</h3><p class="text-xs text-blue-600 mt-1">เป้าหมายการขาย แยกตามปี ภาค และกลุ่มสินค้า</p></div>
+                        <div class="flex items-center gap-3 w-full md:w-auto flex-wrap md:flex-nowrap">
+                            <div class="flex items-center bg-white border border-blue-200 rounded text-sm overflow-hidden"><span class="bg-blue-50 px-2 py-1.5 text-blue-700 font-medium text-[10px] border-r border-blue-200 uppercase">Region</span><select id="targetFilterRegion" onchange="updateTargetTable()" class="px-2 py-1.5 outline-none font-bold text-blue-800 bg-white cursor-pointer text-xs min-w-[100px]"><option value="ALL">All Regions</option></select></div>
+                            <div class="flex items-center bg-white border border-blue-200 rounded text-sm overflow-hidden"><span class="bg-blue-50 px-2 py-1.5 text-blue-700 font-medium text-[10px] border-r border-blue-200 uppercase">Product</span><select id="targetFilterProduct" onchange="updateTargetTable()" class="px-2 py-1.5 outline-none font-bold text-blue-800 bg-white cursor-pointer text-xs min-w-[100px]"><option value="ALL">All Products</option></select></div>
+                            <div class="flex items-center bg-white border border-blue-200 rounded text-sm overflow-hidden"><span class="bg-blue-50 px-2 py-1.5 text-blue-700 font-medium text-[10px] border-r border-blue-200 uppercase">Year</span><select id="targetFilterYear" onchange="updateTargetTable()" class="px-2 py-1.5 outline-none font-bold text-blue-800 bg-white cursor-pointer text-xs min-w-[80px]"><option value="ALL">All Years</option></select></div>
+                            <div class="flex items-center gap-1 export-buttons ml-auto md:ml-0">
+                                <button onclick="exportTableToExcel('targetRegionTable', 'Target_Overview')" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-emerald-600 rounded hover:bg-emerald-50 transition" title="Export Excel"><i class="fas fa-file-excel"></i></button>
+                                <button onclick="exportSectionAsImage('targetTableWrapper', 'Target_Overview', this)" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-blue-600 rounded hover:bg-blue-50 transition" title="Export Image"><i class="fas fa-image"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="w-full overflow-x-auto bg-white max-h-[500px]">
+                        <table class="w-full text-right enterprise-table min-w-[1200px]" id="targetRegionTable">
+                            <thead class="bg-slate-50 sticky top-0 z-20 shadow-sm" id="targetRegionTableHead">
+                                <tr>
+                                    <th class="text-left sticky left-0 z-30 bg-slate-50 shadow-[inset_-1px_0_0_#e2e8f0] w-[80px] min-w-[80px]">Year</th>
+                                    <th class="text-left sticky left-[80px] z-30 bg-slate-50 shadow-[inset_-1px_0_0_#e2e8f0] w-[120px] min-w-[120px]">Region</th>
+                                    <th class="text-left sticky left-[200px] z-30 bg-slate-50 shadow-[inset_-1px_0_0_#e2e8f0] w-[200px] min-w-[200px]">Product Group</th>
+                                    <th>Jan</th><th>Feb</th><th>Mar</th><th>Apr</th><th>May</th><th>Jun</th><th>Jul</th><th>Aug</th><th>Sep</th><th>Oct</th><th>Nov</th><th>Dec</th>
+                                    <th class="bg-blue-50 text-blue-800 shadow-[inset_1px_0_0_#bfdbfe] min-w-[100px]">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="targetRegionTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Backlog Red Brick -->
+                <div class="bg-white rounded-xl border border-slate-200 card-shadow w-full mt-6" id="backlogRedBrickTableWrapper">
+                    <div class="bg-orange-50 border-b border-orange-100 p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div><h3 class="font-bold text-orange-800 text-lg flex items-center"><i class="fas fa-cubes mr-2"></i>Backlog Breakdown: Red Brick</h3></div>
+                        <div class="flex items-center gap-3 w-full md:w-auto flex-wrap md:flex-nowrap">
+                            <div class="flex items-center bg-white border border-orange-200 rounded text-sm overflow-hidden"><span class="bg-orange-50 px-2 py-1.5 text-orange-700 font-medium text-[10px] border-r border-orange-200 uppercase">Year</span><select id="backlogRedBrickFilterYear" onchange="updateBacklogRedBrickTable()" class="px-2 py-1.5 outline-none font-bold text-orange-800 bg-white cursor-pointer text-xs min-w-[80px]"><option value="ALL">2025-2028</option><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option><option value="2028">2028</option></select></div>
+                            <div class="flex items-center gap-1 export-buttons ml-auto md:ml-0">
+                                <button onclick="exportTableToExcel('backlogRedBrickRegionTable', 'Backlog_RedBrick')" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-emerald-600 rounded hover:bg-emerald-50 transition" title="Export Excel"><i class="fas fa-file-excel"></i></button>
+                                <button onclick="exportSectionAsImage('backlogRedBrickTableWrapper', 'Backlog_RedBrick', this)" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-blue-600 rounded hover:bg-blue-50 transition" title="Export Image"><i class="fas fa-image"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="w-full overflow-x-auto bg-white max-h-[500px]">
+                        <table class="w-full text-right enterprise-table" id="backlogRedBrickRegionTable"><thead class="bg-slate-50 sticky top-0 z-20 shadow-sm"><tr id="backlogRedBrickRegionTableHeadYears"></tr><tr id="backlogRedBrickRegionTableHeadMonths"></tr></thead><tbody id="backlogRedBrickRegionTableBody"></tbody></table>
+                    </div>
+                </div>
+
+                <!-- Backlog ALC -->
+                <div class="bg-white rounded-xl border border-slate-200 card-shadow w-full mt-6" id="backlogAlcOtherTableWrapper">
+                    <div class="bg-purple-50 border-b border-purple-100 p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div><h3 class="font-bold text-purple-800 text-lg flex items-center"><i class="fas fa-th-large mr-2"></i>Backlog Breakdown: ALC Other Sizes</h3></div>
+                        <div class="flex items-center gap-3 w-full md:w-auto flex-wrap md:flex-nowrap">
+                            <div class="flex items-center bg-white border border-purple-200 rounded text-sm overflow-hidden"><span class="bg-purple-50 px-2 py-1.5 text-purple-700 font-medium text-[10px] border-r border-purple-200 uppercase">Year</span><select id="backlogAlcOtherFilterYear" onchange="updateBacklogAlcOtherTable()" class="px-2 py-1.5 outline-none font-bold text-purple-800 bg-white cursor-pointer text-xs min-w-[80px]"><option value="ALL">2025-2028</option><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option><option value="2028">2028</option></select></div>
+                            <div class="flex items-center gap-1 export-buttons ml-auto md:ml-0">
+                                <button onclick="exportTableToExcel('backlogAlcOtherRegionTable', 'Backlog_ALC_Other')" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-emerald-600 rounded hover:bg-emerald-50 transition" title="Export Excel"><i class="fas fa-file-excel"></i></button>
+                                <button onclick="exportSectionAsImage('backlogAlcOtherTableWrapper', 'Backlog_ALC_Other', this)" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-blue-600 rounded hover:bg-blue-50 transition" title="Export Image"><i class="fas fa-image"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="w-full overflow-x-auto bg-white max-h-[500px]">
+                        <table class="w-full text-right enterprise-table" id="backlogAlcOtherRegionTable"><thead class="bg-slate-50 sticky top-0 z-20 shadow-sm"><tr id="backlogAlcOtherRegionTableHeadYears"></tr><tr id="backlogAlcOtherRegionTableHeadMonths"></tr></thead><tbody id="backlogAlcOtherRegionTableBody"></tbody></table>
+                    </div>
+                </div>
+
+                <!-- Backlog Precast -->
+                <div class="bg-white rounded-xl border border-slate-200 card-shadow w-full mt-6" id="backlogPrecastTableWrapper">
+                    <div class="bg-indigo-50 border-b border-indigo-100 p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div><h3 class="font-bold text-indigo-800 text-lg flex items-center"><i class="fas fa-building mr-2"></i>Backlog Breakdown: Precast</h3></div>
+                        <div class="flex items-center gap-3 w-full md:w-auto flex-wrap md:flex-nowrap">
+                            <div class="flex items-center bg-white border border-indigo-200 rounded text-sm overflow-hidden"><span class="bg-indigo-50 px-2 py-1.5 text-indigo-700 font-medium text-[10px] border-r border-indigo-200 uppercase">Year</span><select id="backlogPrecastFilterYear" onchange="updateBacklogPrecastTable()" class="px-2 py-1.5 outline-none font-bold text-indigo-800 bg-white cursor-pointer text-xs min-w-[80px]"><option value="ALL">2025-2028</option><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option><option value="2028">2028</option></select></div>
+                            <div class="flex items-center gap-1 export-buttons ml-auto md:ml-0">
+                                <button onclick="exportTableToExcel('backlogPrecastRegionTable', 'Backlog_Precast')" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-emerald-600 rounded hover:bg-emerald-50 transition" title="Export Excel"><i class="fas fa-file-excel"></i></button>
+                                <button onclick="exportSectionAsImage('backlogPrecastTableWrapper', 'Backlog_Precast', this)" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-blue-600 rounded hover:bg-blue-50 transition" title="Export Image"><i class="fas fa-image"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="w-full overflow-x-auto bg-white max-h-[500px]">
+                        <table class="w-full text-right enterprise-table" id="backlogPrecastRegionTable"><thead class="bg-slate-50 sticky top-0 z-20 shadow-sm"><tr id="backlogPrecastRegionTableHeadYears"></tr><tr id="backlogPrecastRegionTableHeadMonths"></tr></thead><tbody id="backlogPrecastRegionTableBody"></tbody></table>
+                    </div>
+                </div>
+
+                <!-- ZONE 2: MASTER SALES STATUS TABLE -->
+                <div class="bg-white rounded-xl border border-slate-200 p-0 card-shadow w-full overflow-hidden mt-6" id="salesStatusTotalWrapper">
+                    <div class="bg-slate-50 border-b border-slate-200 p-5 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div><h3 class="font-bold text-slate-800 text-lg flex items-center"><i class="fas fa-table mr-2 text-blue-600"></i>Master Sales Status</h3></div>
+                        <div class="flex items-center gap-3 w-full md:w-auto">
+                            <div class="flex items-center bg-white border border-slate-300 rounded text-sm overflow-hidden"><span class="bg-slate-100 px-3 py-1.5 text-slate-600 font-medium text-xs border-r border-slate-300">Update Year</span><select id="ssTableYear" onchange="renderSalesStatusTable()" class="px-3 py-1.5 outline-none font-bold text-blue-700 bg-white cursor-pointer text-xs min-w-[100px]"><option value="all">ALL YEARS</option></select></div>
+                            <div class="flex items-center gap-1 export-buttons">
+                                <button onclick="exportTableToExcel('salesStatusTable', 'Sales_Status_Master')" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-emerald-600 rounded hover:bg-emerald-50 transition" title="Export Excel"><i class="fas fa-file-excel"></i></button>
+                                <button onclick="exportSectionAsImage('salesStatusTotalWrapper', 'Sales_Status_Master', this)" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-blue-600 rounded hover:bg-blue-50 transition" title="Export Image"><i class="fas fa-image"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="w-full overflow-x-auto bg-white">
+                        <table class="w-full text-right enterprise-table" id="salesStatusTable">
+                            <thead><tr><th class="text-left sticky left-0 shadow-[inset_-1px_0_0_#e2e8f0] z-10 w-48 bg-slate-50">Status</th><th class="bg-slate-50">Jan</th><th class="bg-slate-50">Feb</th><th class="bg-slate-50">Mar</th><th class="bg-slate-50">Apr</th><th class="bg-slate-50">May</th><th class="bg-slate-50">Jun</th><th class="bg-slate-50">Jul</th><th class="bg-slate-50">Aug</th><th class="bg-slate-50">Sep</th><th class="bg-slate-50">Oct</th><th class="bg-slate-50">Nov</th><th class="bg-slate-50">Dec</th><th class="bg-slate-100 text-slate-800 border-l border-slate-200 shadow-[inset_1px_0_0_#e2e8f0]">YTD Total</th></tr></thead>
+                            <tbody id="ssTableBody"></tbody>
+                        </table>
+                    </div>
+                    <div class="p-5 border-t border-slate-100 bg-white"><div class="w-full h-[300px]"><canvas id="chart_ssTotal"></canvas></div></div>
+                </div>
+
+                <!-- ZONE 3: REGIONAL PERFORMANCE -->
+                <h3 class="text-xl font-bold text-slate-800 mt-8 border-l-4 border-blue-600 pl-3">Regional Performance Breakdowns</h3>
+                
+                <!-- 3.1 All Region -->
+                <div class="bg-white rounded-xl border border-slate-200 card-shadow w-full overflow-hidden" id="allRegionTableWrapper">
+                    <div class="bg-white border-b border-slate-200 p-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div class="flex items-center gap-3"><div class="bg-blue-100 text-blue-700 w-10 h-10 rounded flex items-center justify-center font-bold text-lg"><i class="fas fa-globe"></i></div><div><h3 class="font-bold text-slate-800 text-md">All Products by Region</h3></div></div>
+                        <div class="flex items-center gap-3 flex-wrap md:flex-nowrap">
+                            <select id="sel_allRegion" onchange="renderSalesStatusTable()" class="border border-slate-300 rounded px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-50 outline-none"><option value="ALL">ALL REGIONS</option></select>
+                            <div class="flex items-center gap-1 export-buttons ml-auto md:ml-0">
+                                <button onclick="exportTableToExcel('allRegionTable', 'Region_All')" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-emerald-600 rounded hover:bg-emerald-50 transition" title="Export Excel"><i class="fas fa-file-excel"></i></button>
+                                <button onclick="exportSectionAsImage('allRegionTableWrapper', 'Region_All', this)" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-blue-600 rounded hover:bg-blue-50 transition" title="Export Image"><i class="fas fa-image"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="w-full overflow-x-auto"><table class="w-full text-right enterprise-table" id="allRegionTable"><thead><tr><th class="text-left sticky left-0 shadow-[inset_-1px_0_0_#e2e8f0] z-20 w-32 bg-slate-50">Region</th><th class="text-left sticky left-[128px] shadow-[inset_-1px_0_0_#e2e8f0] z-20 w-40 bg-slate-50">Status</th><th class="bg-slate-50">Jan</th><th class="bg-slate-50">Feb</th><th class="bg-slate-50">Mar</th><th class="bg-slate-50">Apr</th><th class="bg-slate-50">May</th><th class="bg-slate-50">Jun</th><th class="bg-slate-50">Jul</th><th class="bg-slate-50">Aug</th><th class="bg-slate-50">Sep</th><th class="bg-slate-50">Oct</th><th class="bg-slate-50">Nov</th><th class="bg-slate-50">Dec</th><th class="bg-slate-100 border-l border-slate-200">Total</th></tr></thead><tbody id="allRegionTableBody"></tbody></table></div>
+                    <div class="p-4 bg-slate-50 border-t border-slate-200 flex flex-col lg:flex-row gap-4"><div class="w-full lg:w-3/4 h-[300px] bg-white border border-slate-200 rounded p-2"><canvas id="chart_allRegion"></canvas></div><div class="w-full lg:w-1/4 bg-white border border-slate-200 rounded p-4 flex flex-col justify-center" id="panel_allRegion"></div></div>
+                </div>
+
+                <!-- 3.2 Red Brick -->
+                <div class="bg-white rounded-xl border border-slate-200 card-shadow w-full overflow-hidden mt-6" id="redBrickTableWrapper">
+                    <div class="bg-white border-b border-slate-200 p-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div class="flex items-center gap-3"><div class="bg-orange-100 text-orange-600 w-10 h-10 rounded flex items-center justify-center font-bold text-lg"><i class="fas fa-cubes"></i></div><div><h3 class="font-bold text-slate-800 text-md">Red Brick by Region</h3></div></div>
+                        <div class="flex items-center gap-3 flex-wrap md:flex-nowrap">
+                            <select id="sel_redBrick" onchange="renderSalesStatusTable()" class="border border-slate-300 rounded px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-50 outline-none"><option value="ALL">ALL REGIONS</option></select>
+                            <div class="flex items-center gap-1 export-buttons ml-auto md:ml-0">
+                                <button onclick="exportTableToExcel('redBrickTable', 'Region_RedBrick')" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-emerald-600 rounded hover:bg-emerald-50 transition" title="Export Excel"><i class="fas fa-file-excel"></i></button>
+                                <button onclick="exportSectionAsImage('redBrickTableWrapper', 'Region_RedBrick', this)" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-blue-600 rounded hover:bg-blue-50 transition" title="Export Image"><i class="fas fa-image"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="w-full overflow-x-auto"><table class="w-full text-right enterprise-table" id="redBrickTable"><thead class="bg-orange-50/30"><tr><th class="text-left sticky left-0 shadow-[inset_-1px_0_0_#e2e8f0] z-20 w-32 bg-slate-50">Region</th><th class="text-left sticky left-[128px] shadow-[inset_-1px_0_0_#e2e8f0] z-20 w-40 bg-slate-50">Status</th><th class="bg-slate-50">Jan</th><th class="bg-slate-50">Feb</th><th class="bg-slate-50">Mar</th><th class="bg-slate-50">Apr</th><th class="bg-slate-50">May</th><th class="bg-slate-50">Jun</th><th class="bg-slate-50">Jul</th><th class="bg-slate-50">Aug</th><th class="bg-slate-50">Sep</th><th class="bg-slate-50">Oct</th><th class="bg-slate-50">Nov</th><th class="bg-slate-50">Dec</th><th class="bg-slate-100 border-l border-slate-200">Total</th></tr></thead><tbody id="redBrickTableBody"></tbody></table></div>
+                    <div class="p-4 bg-slate-50 border-t border-slate-200 flex flex-col lg:flex-row gap-4"><div class="w-full lg:w-3/4 h-[300px] bg-white border border-slate-200 rounded p-2"><canvas id="chart_redBrick"></canvas></div><div class="w-full lg:w-1/4 bg-white border border-slate-200 rounded p-4 flex flex-col justify-center" id="panel_redBrick"></div></div>
+                </div>
+
+                <!-- 3.3 ALC Other Sizes -->
+                <div class="bg-white rounded-xl border border-slate-200 card-shadow w-full overflow-hidden mt-6" id="alcOtherTableWrapper">
+                    <div class="bg-white border-b border-slate-200 p-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div class="flex items-center gap-3"><div class="bg-purple-100 text-purple-700 w-10 h-10 rounded flex items-center justify-center font-bold text-lg"><i class="fas fa-th-large"></i></div><div><h3 class="font-bold text-slate-800 text-md">ALC Other Sizes by Region</h3></div></div>
+                        <div class="flex items-center gap-3 flex-wrap md:flex-nowrap">
+                            <select id="sel_alcOther" onchange="renderSalesStatusTable()" class="border border-slate-300 rounded px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-50 outline-none"><option value="ALL">ALL REGIONS</option></select>
+                            <div class="flex items-center gap-1 export-buttons ml-auto md:ml-0">
+                                <button onclick="exportTableToExcel('alcOtherTable', 'Region_ALCOther')" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-emerald-600 rounded hover:bg-emerald-50 transition" title="Export Excel"><i class="fas fa-file-excel"></i></button>
+                                <button onclick="exportSectionAsImage('alcOtherTableWrapper', 'Region_ALCOther', this)" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-blue-600 rounded hover:bg-blue-50 transition" title="Export Image"><i class="fas fa-image"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="w-full overflow-x-auto"><table class="w-full text-right enterprise-table" id="alcOtherTable"><thead class="bg-purple-50/30"><tr><th class="text-left sticky left-0 shadow-[inset_-1px_0_0_#e2e8f0] z-20 w-32 bg-slate-50">Region</th><th class="text-left sticky left-[128px] shadow-[inset_-1px_0_0_#e2e8f0] z-20 w-40 bg-slate-50">Status</th><th class="bg-slate-50">Jan</th><th class="bg-slate-50">Feb</th><th class="bg-slate-50">Mar</th><th class="bg-slate-50">Apr</th><th class="bg-slate-50">May</th><th class="bg-slate-50">Jun</th><th class="bg-slate-50">Jul</th><th class="bg-slate-50">Aug</th><th class="bg-slate-50">Sep</th><th class="bg-slate-50">Oct</th><th class="bg-slate-50">Nov</th><th class="bg-slate-50">Dec</th><th class="bg-slate-100 border-l border-slate-200">Total</th></tr></thead><tbody id="alcOtherTableBody"></tbody></table></div>
+                    <div class="p-4 bg-slate-50 border-t border-slate-200 flex flex-col lg:flex-row gap-4"><div class="w-full lg:w-3/4 h-[300px] bg-white border border-slate-200 rounded p-2"><canvas id="chart_alcOther"></canvas></div><div class="w-full lg:w-1/4 bg-white border border-slate-200 rounded p-4 flex flex-col justify-center" id="panel_alcOther"></div></div>
+                </div>
+
+                <!-- 3.4 Precast -->
+                <div class="bg-white rounded-xl border border-slate-200 card-shadow w-full overflow-hidden mt-6" id="precastTableWrapper">
+                    <div class="bg-white border-b border-slate-200 p-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div class="flex items-center gap-3"><div class="bg-indigo-100 text-indigo-700 w-10 h-10 rounded flex items-center justify-center font-bold text-lg"><i class="fas fa-building"></i></div><div><h3 class="font-bold text-slate-800 text-md">Precast by Region</h3></div></div>
+                        <div class="flex items-center gap-3 flex-wrap md:flex-nowrap">
+                            <select id="sel_precast" onchange="renderSalesStatusTable()" class="border border-slate-300 rounded px-3 py-1.5 text-xs font-bold text-slate-700 bg-slate-50 outline-none"><option value="ALL">ALL REGIONS</option></select>
+                            <div class="flex items-center gap-1 export-buttons ml-auto md:ml-0">
+                                <button onclick="exportTableToExcel('precastTable', 'Region_Precast')" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-emerald-600 rounded hover:bg-emerald-50 transition" title="Export Excel"><i class="fas fa-file-excel"></i></button>
+                                <button onclick="exportSectionAsImage('precastTableWrapper', 'Region_Precast', this)" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-blue-600 rounded hover:bg-blue-50 transition" title="Export Image"><i class="fas fa-image"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="w-full overflow-x-auto"><table class="w-full text-right enterprise-table" id="precastTable"><thead class="bg-indigo-50/30"><tr><th class="text-left sticky left-0 shadow-[inset_-1px_0_0_#e2e8f0] z-20 w-32 bg-slate-50">Region</th><th class="text-left sticky left-[128px] shadow-[inset_-1px_0_0_#e2e8f0] z-20 w-40 bg-slate-50">Status</th><th class="bg-slate-50">Jan</th><th class="bg-slate-50">Feb</th><th class="bg-slate-50">Mar</th><th class="bg-slate-50">Apr</th><th class="bg-slate-50">May</th><th class="bg-slate-50">Jun</th><th class="bg-slate-50">Jul</th><th class="bg-slate-50">Aug</th><th class="bg-slate-50">Sep</th><th class="bg-slate-50">Oct</th><th class="bg-slate-50">Nov</th><th class="bg-slate-50">Dec</th><th class="bg-slate-100 border-l border-slate-200">Total</th></tr></thead><tbody id="precastTableBody"></tbody></table></div>
+                    <div class="p-4 bg-slate-50 border-t border-slate-200 flex flex-col lg:flex-row gap-4"><div class="w-full lg:w-3/4 h-[300px] bg-white border border-slate-200 rounded p-2"><canvas id="chart_precast"></canvas></div><div class="w-full lg:w-1/4 bg-white border border-slate-200 rounded p-4 flex flex-col justify-center" id="panel_precast"></div></div>
+                </div>
+
+                <!-- 3.5 Red Brick: Combined Pipeline & Backlog -->
+                <div class="bg-white rounded-xl border border-slate-200 card-shadow w-full overflow-hidden mt-6" id="redBrickCombinedTableWrapper">
+                    <div class="bg-orange-50 border-b border-orange-200 p-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div class="flex items-center gap-3"><div class="bg-orange-100 text-orange-700 w-10 h-10 rounded flex items-center justify-center font-bold text-lg"><i class="fas fa-layer-group"></i></div><div><h3 class="font-bold text-slate-800 text-md">Red Brick: Combined Pipeline & Backlog</h3></div></div>
+                        <div class="flex items-center gap-3 flex-wrap md:flex-nowrap">
+                            <div class="flex items-center bg-white border border-orange-200 rounded text-sm overflow-hidden"><span class="bg-orange-50 px-2 py-1.5 text-orange-700 font-medium text-[10px] border-r border-orange-200 uppercase">Year</span><select id="sel_redBrickCombinedYear" onchange="renderSalesStatusTable()" class="px-2 py-1.5 outline-none font-bold text-orange-800 bg-white cursor-pointer text-xs min-w-[80px]"><option value="ALL">ALL YEARS</option><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option><option value="2028">2028</option></select></div>
+                            <select id="sel_redBrickCombined" onchange="renderSalesStatusTable()" class="border border-slate-300 rounded px-3 py-1.5 text-xs font-bold text-slate-700 bg-white outline-none"><option value="ALL">ALL REGIONS</option></select>
+                            <div class="flex items-center gap-1 export-buttons ml-auto md:ml-0">
+                                <button onclick="exportTableToExcel('redBrickCombinedTable', 'Region_RedBrick_Combined')" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-emerald-600 rounded hover:bg-emerald-50 transition" title="Export Excel"><i class="fas fa-file-excel"></i></button>
+                                <button onclick="exportSectionAsImage('redBrickCombinedTableWrapper', 'Region_RedBrick_Combined', this)" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-blue-600 rounded hover:bg-blue-50 transition" title="Export Image"><i class="fas fa-image"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="w-full overflow-x-auto"><table class="w-full text-right enterprise-table" id="redBrickCombinedTable"><thead class="bg-orange-100/30"><tr><th class="text-left sticky left-0 shadow-[inset_-1px_0_0_#e2e8f0] z-20 w-32 bg-slate-50">Region</th><th class="text-left sticky left-[128px] shadow-[inset_-1px_0_0_#e2e8f0] z-20 w-40 bg-slate-50">Status</th><th class="bg-slate-50">Jan</th><th class="bg-slate-50">Feb</th><th class="bg-slate-50">Mar</th><th class="bg-slate-50">Apr</th><th class="bg-slate-50">May</th><th class="bg-slate-50">Jun</th><th class="bg-slate-50">Jul</th><th class="bg-slate-50">Aug</th><th class="bg-slate-50">Sep</th><th class="bg-slate-50">Oct</th><th class="bg-slate-50">Nov</th><th class="bg-slate-50">Dec</th><th class="bg-slate-100 border-l border-slate-200">Total</th></tr></thead><tbody id="redBrickCombinedTableBody"></tbody></table></div>
+                    <div class="p-4 bg-slate-50 border-t border-slate-200 flex flex-col lg:flex-row gap-4"><div class="w-full lg:w-3/4 h-[300px] bg-white border border-slate-200 rounded p-2"><canvas id="chart_redBrickCombined"></canvas></div><div class="w-full lg:w-1/4 bg-white border border-slate-200 rounded p-4 flex flex-col justify-center" id="panel_redBrickCombined"></div></div>
+                </div>
+
+                <!-- 3.6 ALC Other Sizes: Combined Pipeline & Backlog -->
+                <div class="bg-white rounded-xl border border-slate-200 card-shadow w-full overflow-hidden mt-6" id="alcOtherCombinedTableWrapper">
+                    <div class="bg-purple-50 border-b border-purple-200 p-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div class="flex items-center gap-3"><div class="bg-purple-100 text-purple-700 w-10 h-10 rounded flex items-center justify-center font-bold text-lg"><i class="fas fa-layer-group"></i></div><div><h3 class="font-bold text-slate-800 text-md">ALC Other Sizes: Combined Pipeline & Backlog</h3></div></div>
+                        <div class="flex items-center gap-3 flex-wrap md:flex-nowrap">
+                            <div class="flex items-center bg-white border border-purple-200 rounded text-sm overflow-hidden"><span class="bg-purple-50 px-2 py-1.5 text-purple-700 font-medium text-[10px] border-r border-purple-200 uppercase">Year</span><select id="sel_alcOtherCombinedYear" onchange="renderSalesStatusTable()" class="px-2 py-1.5 outline-none font-bold text-purple-800 bg-white cursor-pointer text-xs min-w-[80px]"><option value="ALL">ALL YEARS</option><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option><option value="2028">2028</option></select></div>
+                            <select id="sel_alcOtherCombined" onchange="renderSalesStatusTable()" class="border border-slate-300 rounded px-3 py-1.5 text-xs font-bold text-slate-700 bg-white outline-none"><option value="ALL">ALL REGIONS</option></select>
+                            <div class="flex items-center gap-1 export-buttons ml-auto md:ml-0">
+                                <button onclick="exportTableToExcel('alcOtherCombinedTable', 'Region_ALCOther_Combined')" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-emerald-600 rounded hover:bg-emerald-50 transition" title="Export Excel"><i class="fas fa-file-excel"></i></button>
+                                <button onclick="exportSectionAsImage('alcOtherCombinedTableWrapper', 'Region_ALCOther_Combined', this)" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-blue-600 rounded hover:bg-blue-50 transition" title="Export Image"><i class="fas fa-image"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="w-full overflow-x-auto"><table class="w-full text-right enterprise-table" id="alcOtherCombinedTable"><thead class="bg-purple-100/30"><tr><th class="text-left sticky left-0 shadow-[inset_-1px_0_0_#e2e8f0] z-20 w-32 bg-slate-50">Region</th><th class="text-left sticky left-[128px] shadow-[inset_-1px_0_0_#e2e8f0] z-20 w-40 bg-slate-50">Status</th><th class="bg-slate-50">Jan</th><th class="bg-slate-50">Feb</th><th class="bg-slate-50">Mar</th><th class="bg-slate-50">Apr</th><th class="bg-slate-50">May</th><th class="bg-slate-50">Jun</th><th class="bg-slate-50">Jul</th><th class="bg-slate-50">Aug</th><th class="bg-slate-50">Sep</th><th class="bg-slate-50">Oct</th><th class="bg-slate-50">Nov</th><th class="bg-slate-50">Dec</th><th class="bg-slate-100 border-l border-slate-200">Total</th></tr></thead><tbody id="alcOtherCombinedTableBody"></tbody></table></div>
+                    <div class="p-4 bg-slate-50 border-t border-slate-200 flex flex-col lg:flex-row gap-4"><div class="w-full lg:w-3/4 h-[300px] bg-white border border-slate-200 rounded p-2"><canvas id="chart_alcOtherCombined"></canvas></div><div class="w-full lg:w-1/4 bg-white border border-slate-200 rounded p-4 flex flex-col justify-center" id="panel_alcOtherCombined"></div></div>
+                </div>
+
+                <!-- 3.7 Precast: Combined Pipeline & Backlog -->
+                <div class="bg-white rounded-xl border border-slate-200 card-shadow w-full overflow-hidden mt-6" id="precastCombinedTableWrapper">
+                    <div class="bg-indigo-50 border-b border-indigo-200 p-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                        <div class="flex items-center gap-3"><div class="bg-indigo-100 text-indigo-700 w-10 h-10 rounded flex items-center justify-center font-bold text-lg"><i class="fas fa-layer-group"></i></div><div><h3 class="font-bold text-slate-800 text-md">Precast: Combined Pipeline & Backlog</h3></div></div>
+                        <div class="flex items-center gap-3 flex-wrap md:flex-nowrap">
+                            <div class="flex items-center bg-white border border-indigo-200 rounded text-sm overflow-hidden"><span class="bg-indigo-50 px-2 py-1.5 text-indigo-700 font-medium text-[10px] border-r border-indigo-200 uppercase">Year</span><select id="sel_precastCombinedYear" onchange="renderSalesStatusTable()" class="px-2 py-1.5 outline-none font-bold text-indigo-800 bg-white cursor-pointer text-xs min-w-[80px]"><option value="ALL">ALL YEARS</option><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option><option value="2028">2028</option></select></div>
+                            <select id="sel_precastCombined" onchange="renderSalesStatusTable()" class="border border-slate-300 rounded px-3 py-1.5 text-xs font-bold text-slate-700 bg-white outline-none"><option value="ALL">ALL REGIONS</option></select>
+                            <div class="flex items-center gap-1 export-buttons ml-auto md:ml-0">
+                                <button onclick="exportTableToExcel('precastCombinedTable', 'Region_Precast_Combined')" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-emerald-600 rounded hover:bg-emerald-50 transition" title="Export Excel"><i class="fas fa-file-excel"></i></button>
+                                <button onclick="exportSectionAsImage('precastCombinedTableWrapper', 'Region_Precast_Combined', this)" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-300 text-blue-600 rounded hover:bg-blue-50 transition" title="Export Image"><i class="fas fa-image"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="w-full overflow-x-auto"><table class="w-full text-right enterprise-table" id="precastCombinedTable"><thead class="bg-indigo-100/30"><tr><th class="text-left sticky left-0 shadow-[inset_-1px_0_0_#e2e8f0] z-20 w-32 bg-slate-50">Region</th><th class="text-left sticky left-[128px] shadow-[inset_-1px_0_0_#e2e8f0] z-20 w-40 bg-slate-50">Status</th><th class="bg-slate-50">Jan</th><th class="bg-slate-50">Feb</th><th class="bg-slate-50">Mar</th><th class="bg-slate-50">Apr</th><th class="bg-slate-50">May</th><th class="bg-slate-50">Jun</th><th class="bg-slate-50">Jul</th><th class="bg-slate-50">Aug</th><th class="bg-slate-50">Sep</th><th class="bg-slate-50">Oct</th><th class="bg-slate-50">Nov</th><th class="bg-slate-50">Dec</th><th class="bg-slate-100 border-l border-slate-200">Total</th></tr></thead><tbody id="precastCombinedTableBody"></tbody></table></div>
+                    <div class="p-4 bg-slate-50 border-t border-slate-200 flex flex-col lg:flex-row gap-4"><div class="w-full lg:w-3/4 h-[300px] bg-white border border-slate-200 rounded p-2"><canvas id="chart_precastCombined"></canvas></div><div class="w-full lg:w-1/4 bg-white border border-slate-200 rounded p-4 flex flex-col justify-center" id="panel_precastCombined"></div></div>
+                </div>
+
+                <!-- ZONE 4: Deep Dive Analytics -->
+                <h3 class="text-xl font-bold text-slate-800 mt-8 border-l-4 border-slate-600 pl-3">Deep Dive Analytics</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-white rounded-xl border border-slate-200 p-4 card-shadow flex flex-col items-center"><h4 class="font-bold text-slate-600 text-xs uppercase mb-2">Project Region</h4><div class="w-full h-[220px]"><canvas id="projectRegionChart"></canvas></div></div>
+                    <div class="bg-white rounded-xl border border-slate-200 p-4 card-shadow flex flex-col items-center"><h4 class="font-bold text-slate-600 text-xs uppercase mb-2">Project Type</h4><div class="w-full h-[220px]"><canvas id="typeChart"></canvas></div></div>
+                    <div class="bg-white rounded-xl border border-slate-200 p-4 card-shadow flex flex-col items-center relative group cursor-pointer"><h4 class="font-bold text-slate-600 text-xs uppercase mb-2 text-center">Opp. Lintel</h4><div class="w-full h-[200px]"><canvas id="lintelChart"></canvas></div></div>
+                    <div class="bg-white rounded-xl border border-slate-200 p-4 card-shadow flex flex-col items-center relative group cursor-pointer"><h4 class="font-bold text-slate-600 text-xs uppercase mb-2 text-center">Opp. Counter</h4><div class="w-full h-[200px]"><canvas id="counterChart"></canvas></div></div>
+                </div>
+                                <!-- ZONE 5: Project Data Table -->
+                <div class="bg-white rounded-xl border border-slate-200 card-shadow w-full mt-6">
+                    <div class="border-b border-slate-200 p-5 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                        <div><h3 class="font-bold text-slate-800 text-lg">Project Database <span id="tableRecordCount" class="text-sm text-slate-400 font-normal ml-2"></span></h3></div>
+                        <div class="flex flex-col sm:flex-row gap-3 w-full lg:w-auto">
+                            <div class="relative w-full sm:w-64"><span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400"><i class="fas fa-hard-hat text-xs"></i></span><input type="text" id="searchContractorInput" onkeyup="renderTable()" placeholder="Search contractor..." class="w-full bg-slate-50 pl-9 pr-3 py-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500"></div>
+                            <div class="relative w-full sm:w-64"><span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400"><i class="fas fa-search text-xs"></i></span><input type="text" id="searchInput" onkeyup="renderTable()" placeholder="Global search..." class="w-full bg-slate-50 pl-9 pr-3 py-2 border border-slate-300 rounded text-sm outline-none focus:border-blue-500"></div>
+                        </div>
+                    </div>
+                    <div class="w-full overflow-x-auto max-h-[600px]"><table class="w-full text-left enterprise-table"><thead class="sticky top-0 z-10 shadow-sm" id="tableHead"></thead><tbody id="tableBody"></tbody></table></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODALS -->
+    <div id="drilldownModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center hidden z-[60] p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full md:w-11/12 max-w-[95vw] max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
+            <div class="flex justify-between items-center p-5 border-b border-slate-200 bg-slate-50 shrink-0">
+                <h3 class="text-lg font-bold text-slate-800" id="drilldownTitle">Drilldown Details</h3>
+                <div class="flex items-center gap-3">
+                    <button onclick="exportTableToExcel('drilldownTable', 'Drilldown_Data')" class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded shadow-sm hover:bg-emerald-100 transition text-xs font-medium flex items-center"><i class="fas fa-file-excel mr-1"></i> Export</button>
+                    <button onclick="document.getElementById('drilldownModal').classList.add('hidden')" class="text-slate-400 hover:text-red-500 transition-colors"><i class="fas fa-times text-xl"></i></button>
+                </div>
+            </div>
+            <div class="p-0 overflow-auto flex-grow bg-white"><table class="w-full text-left enterprise-table whitespace-nowrap" id="drilldownTable"><thead class="sticky top-0 shadow-sm z-10" id="drilldownHead"></thead><tbody id="drilldownBody"></tbody></table></div>
+        </div>
+    </div>
+
+    <div id="cloudModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center hidden z-[110]">
+        <div class="bg-white rounded-xl shadow-2xl w-11/12 md:w-1/2 p-6">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-4 mb-5">
+                <h3 class="text-lg font-bold text-slate-800"><i class="fas fa-cloud-upload-alt text-blue-600 mr-2"></i>System Settings</h3>
+                <button type="button" onclick="document.getElementById('cloudModal').classList.add('hidden')" class="text-slate-400 hover:text-red-500 transition"><i class="fas fa-times text-lg"></i></button>
+            </div>
+            <div class="space-y-4 text-sm text-slate-600">
+                <p class="font-medium">Google Apps Script URL</p>
+                <input type="text" id="apiUrlInput" class="w-full bg-slate-50 border border-slate-300 rounded p-2.5 outline-none focus:border-blue-500" placeholder="https://script.google.com/macros/...">
+            </div>
+            <div class="mt-6 flex justify-between items-center">
+                <button type="button" onclick="clearCloudSettings()" class="px-4 py-2 bg-white border border-red-200 text-red-600 text-xs font-medium rounded hover:bg-red-50 transition"><i class="fas fa-unlink mr-1"></i> Disconnect</button>
+                <div class="flex space-x-2">
+                    <button type="button" onclick="document.getElementById('cloudModal').classList.add('hidden')" class="px-4 py-2 bg-slate-100 text-slate-700 text-xs font-medium rounded hover:bg-slate-200">Cancel</button>
+                    <button type="button" onclick="saveCloudSettings()" class="px-4 py-2 bg-blue-700 text-white text-xs font-medium rounded hover:bg-blue-800 shadow">Save Changes</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function safeGetStorage(key) { try { return localStorage.getItem(key); } catch(e) { return null; } }
+        function safeSetStorage(key, val) { try { localStorage.setItem(key, val); } catch(e) {} }
+        function safeRemoveStorage(key) { try { localStorage.removeItem(key); } catch(e) {} }
+
+        if (safeGetStorage('app_version_update') !== 'v22_enterprise_forecast_split') {
+            safeRemoveStorage('scgApiUrl'); safeRemoveStorage('scgProjectData'); safeRemoveStorage('scgTargetData'); safeRemoveStorage('scgCurrentUser'); 
+            safeSetStorage('app_version_update', 'v22_enterprise_forecast_split');
+        }
+
+        try { if (typeof Chart !== 'undefined') { Chart.defaults.font.family = 'Sarabun'; if (typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels); } } catch(err) {}
+
+        const fieldsG1 = ['Project ID', 'วันที่บันทึกข้อมูล', 'เดือน', 'ปี', 'Created by', 'ชื่อโครงการ', 'Project Region', 'อำเภอ', 'จังหวัด', 'เจ้าของโครงการ', 'Owner Nationality', 'ผู้รับเหมา', 'Customer Group', 'เบอร์โทร', 'Customer Class'];
+        const fieldsG2 = ['ที่มาของ Opp', 'SR Resp.', 'Company Sales(Q-CON/SCG)', 'ช่องทางการขาย', 'ร้านผู้แทนจำหน่าย', 'Dealer Region', 'ประวัติ Dealer Region (ขอราคาเพิ่ม)', 'ราชการ/เอกชน', 'Type(R/C/I/F)', 'ลักษณะโครงการ', 'ประเภทโครงการ', 'Product Spec เดิม', 'Product', 'ชั้นคุณภาพ', 'ขนาด'];
+        const fieldsG3 = ['Opp7.5cm', 'หน่วย1', 'Opp9cm', 'หน่วย2', 'Opp10cm', 'หน่วย3', 'Opp12.5cm', 'หน่วย4', 'Opp15cm', 'หน่วย5', 'Opp17.5cm', 'หน่วย6', 'Opp20cm', 'หน่วย7', 'Oppรวม7.5cm/9cm', 'Opp.Other sizeรวม', 'Opp.รวม'];
+        const fieldsG4 = ['ราคาฐาน7.5cmG2', 'ราคาฐาน7.5cmG4', 'ราคาWall', 'เงื่อนไข', 'Opp.Lintel/ตร.ม.', 'Opp.Counter/ตร.ม.', 'ราคา/คิวLintel', 'ราคา/คิวCounter', 'หมายเหตุ', 'แผนที่', 'รูปหน้างาน', 'เดือนที่เริ่มใช้', 'Sales Status', 'เดือนที่ปิดการขาย', 'สินค้าที่ปิดการขาย', 'เหตุผล (Win / Loss)', 'Last updated date', 'เดือน Last updated', 'ปี Last updated', 'Note ทีมขาย', 'ปัญหาการใช้งานมวลเบา', 'In Action'];
+        const fieldsG5 = ['Jan2025','Feb2025','Mar2025','Apr2025','May2025','Jun2025','Jul2025','Aug2025','Sep2025','Oct2025','Nov2025','Dec2025','Jan2026','Feb2026','Mar2026','Apr2026','May2026','Jun2026','Jul2026','Aug2026','Sep2026','Oct2026','Nov2026','Dec2026','Jan2027','Feb2027','Mar2027','Apr2027','May2027','Jun2027','Jul2027','Aug2027','Sep2027','Oct2027','Nov2027','Dec2027','Jan2028','Feb2028','Mar2028','Apr2028','May2028','Jun2028','Jul2028','Aug2028','Sep2028','Oct2028','Nov2028','Dec2028'];
+        const allFields = [...fieldsG1, ...fieldsG2, ...fieldsG3, ...fieldsG4, ...fieldsG5];
+
+        let projectData = []; let targetData = []; let editIndex = -1; let chartInstances = {};
+        let regionalDataStore = {
+            allRegion: { regions: [], statusMap: {}, grandStatusMap: {}, backlogMap: {}, grandBacklog: Array(12).fill(0), targetMap: {}, grandTarget: Array(12).fill(0) },
+            redBrick: { regions: [], statusMap: {}, grandStatusMap: {}, backlogMap: {}, grandBacklog: Array(12).fill(0), targetMap: {}, grandTarget: Array(12).fill(0) },
+            alcOther: { regions: [], statusMap: {}, grandStatusMap: {}, backlogMap: {}, grandBacklog: Array(12).fill(0), targetMap: {}, grandTarget: Array(12).fill(0) },
+            precast: { regions: [], statusMap: {}, grandStatusMap: {}, backlogMap: {}, grandBacklog: Array(12).fill(0), targetMap: {}, grandTarget: Array(12).fill(0) },
+            redBrickCombined: { regions: [], statusMap: {}, grandStatusMap: {}, backlogMap: {}, grandBacklog: Array(12).fill(0), targetMap: {}, grandTarget: Array(12).fill(0) },
+            alcOtherCombined: { regions: [], statusMap: {}, grandStatusMap: {}, backlogMap: {}, grandBacklog: Array(12).fill(0), targetMap: {}, grandTarget: Array(12).fill(0) },
+            precastCombined: { regions: [], statusMap: {}, grandStatusMap: {}, backlogMap: {}, grandBacklog: Array(12).fill(0), targetMap: {}, grandTarget: Array(12).fill(0) }
+        };
+        
+        let cloudApiUrl = safeGetStorage('scgApiUrl') !== null ? safeGetStorage('scgApiUrl') : 'https://script.google.com/macros/s/AKfycbz4TaAndWjn9vzCBvHlwt-neKBIIc_J2SiP0GW1uUDeql67WBrIM29P9BF-F8Wm59Zs/exec';
+        let currentUser = safeGetStorage('scgCurrentUser');
+
+        const colorPalette = ['#1e40af', '#0f766e', '#b45309', '#6d28d9', '#be123c', '#0369a1', '#1d4ed8']; 
+        let statusColorMap = {}; 
+        const themeStyles = {
+            emerald: { hoverRow: 'hover:bg-emerald-50/50', absTotalCell: 'text-emerald-700 bg-emerald-50 border-emerald-200', footerRow: 'bg-emerald-100/50 border-emerald-200', footerHeader: 'text-emerald-900 bg-emerald-100/80 border-emerald-200 shadow-[inset_-1px_0_0_#a7f3d0]', footerTotalCell: 'text-emerald-900 bg-emerald-200 border-emerald-300', bgBlock1: 'bg-emerald-50/30', bgBlock2: 'bg-emerald-100/30', textFooter: 'text-emerald-800 border-emerald-100/50', thAbsTotal: 'bg-emerald-100/50 text-emerald-800 border-emerald-200 shadow-[inset_1px_0_0_#e2e8f0]' },
+            orange: { hoverRow: 'hover:bg-orange-50/50', absTotalCell: 'text-orange-700 bg-orange-50 border-orange-200', footerRow: 'bg-orange-100/50 border-orange-200', footerHeader: 'text-orange-900 bg-orange-100/80 border-orange-200 shadow-[inset_-1px_0_0_#fed7aa]', footerTotalCell: 'text-orange-900 bg-orange-200 border-orange-300', bgBlock1: 'bg-orange-50/30', bgBlock2: 'bg-orange-100/30', textFooter: 'text-orange-800 border-orange-100/50', thAbsTotal: 'bg-orange-100/50 text-orange-800 border-orange-200 shadow-[inset_1px_0_0_#e2e8f0]' },
+            purple: { hoverRow: 'hover:bg-purple-50/50', absTotalCell: 'text-purple-700 bg-purple-50 border-purple-200', footerRow: 'bg-purple-100/50 border-purple-200', footerHeader: 'text-purple-900 bg-purple-100/80 border-purple-200 shadow-[inset_-1px_0_0_#e9d5ff]', footerTotalCell: 'text-purple-900 bg-purple-200 border-purple-300', bgBlock1: 'bg-purple-50/30', bgBlock2: 'bg-purple-100/30', textFooter: 'text-purple-800 border-purple-100/50', thAbsTotal: 'bg-purple-100/50 text-purple-800 border-purple-200 shadow-[inset_1px_0_0_#e2e8f0]' },
+            indigo: { hoverRow: 'hover:bg-indigo-50/50', absTotalCell: 'text-indigo-700 bg-indigo-50 border-indigo-200', footerRow: 'bg-indigo-100/50 border-indigo-200', footerHeader: 'text-indigo-900 bg-indigo-100/80 border-indigo-200 shadow-[inset_-1px_0_0_#e0e7ff]', footerTotalCell: 'text-indigo-900 bg-indigo-200 border-indigo-300', bgBlock1: 'bg-indigo-50/30', bgBlock2: 'bg-indigo-100/30', textFooter: 'text-indigo-800 border-indigo-100/50', thAbsTotal: 'bg-indigo-100/50 text-indigo-800 border-indigo-200 shadow-[inset_1px_0_0_#e2e8f0]' }
+        };
+
+        function getColorForLabel(label) {
+            let key = String(label).trim().toLowerCase();
+            if (key === 'win') return '#10b981'; if (key === 'high potential') return '#0ea5e9'; 
+            if (key === 'follow') return '#f59e0b'; if (key === 'loss') return '#f43f5e';           
+            if (!statusColorMap[label]) statusColorMap[label] = colorPalette[Object.keys(statusColorMap).length % colorPalette.length];
+            return statusColorMap[label];
+        }
+
+        function getColorsForLabels(labels) { return labels.map(label => getColorForLabel(label)); }
+        
+        function formatDisplayDate(val, mode) {
+            if(!val) return '-'; let s = String(val).split('T')[0].split(' ')[0];
+            if(mode === 'DD/MM/YYYY') {
+                if(s.includes('-')) { let p = s.split('-'); if(p.length === 3) return `${p[2]}/${p[1]}/${p[0]}`; if(p.length === 2) return `01/${p[1]}/${p[0]}`; }
+                else if(s.includes('/')) { let p = s.split('/'); if(p.length === 3 && p[0].length === 4) return `${p[2]}/${p[1]}/${p[0]}`; if(p.length === 3) return `${p[0].padStart(2,'0')}/${p[1].padStart(2,'0')}/${p[2]}`; if(p.length === 2) return `01/${p[0].padStart(2,'0')}/${p[1]}`; }
+            } else if(mode === 'MM/YYYY') {
+                if(s.includes('-')) { let p = s.split('-'); if(p.length >= 2) return `${p[1].padStart(2,'0')}/${p[0]}`; }
+                else if(s.includes('/')) { let p = s.split('/'); if(p.length === 3) return `${p[1].padStart(2,'0')}/${p[2]}`; if(p.length === 2) return `${p[0].padStart(2,'0')}/${p[1]}`; }
+            }
+            return s;
+        }
+
+        const thaiMonthsFull = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+        const thaiMonthsAbbr = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+        const engMonthsFull = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        const engMonthsAbbr = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+        function extractDateInfo(dateVal) {
+            if (!dateVal) return null; let cleanStr = String(dateVal).split('T')[0].split(' ')[0]; let y, m, d;
+            if (cleanStr.includes('-')) { let p = cleanStr.split('-'); if (p.length >= 3) { if (p[0].length === 4) { y = p[0]; m = p[1]; d = p[2]; } else if (p[2].length === 4) { d = p[0]; m = p[1]; y = p[2]; } } } 
+            else if (cleanStr.includes('/')) { let p = cleanStr.split('/'); if (p.length >= 3) { if (p[2].length === 4) { d = p[0]; m = p[1]; y = p[2]; } else if (p[0].length === 4) { y = p[0]; m = p[1]; d = p[2]; } } }
+            if (y && m) { let mIdx = parseInt(m, 10) - 1; if (mIdx >= 0 && mIdx <= 11) { return { year: y, monthIndex: mIdx, monthStr: engMonthsAbbr[mIdx] }; } }
+            return null;
+        }
+
+        function getYearFromLastUpdate(r) { let info = extractDateInfo(r['Last updated date']); if (info && info.year) return info.year; let y = r['ปี Last updated']; if(y && String(y).trim() !== '') return String(y).trim(); return ''; }
+        function getMonthIndex(m) {
+            if(!m) return 999; let str = String(m).trim().toLowerCase();
+            let idx = thaiMonthsFull.findIndex(x => str.includes(x.toLowerCase())); if(idx !== -1) return idx;
+            idx = thaiMonthsAbbr.findIndex(x => str.includes(x.toLowerCase())); if(idx !== -1) return idx;
+            idx = engMonthsFull.findIndex(x => str.includes(x.toLowerCase())); if(idx !== -1) return idx;
+            idx = engMonthsAbbr.findIndex(x => str.startsWith(x.toLowerCase())); if(idx !== -1) return idx;
+            let numMatch = str.match(/^0?(\d+)/); if(numMatch) { let n = parseInt(numMatch[1]); if(n >= 1 && n <= 12) return n - 1; }
+            return 999;
+        }
+        function getMonthIndexFromLastUpdate(r) { let info = extractDateInfo(r['Last updated date']); if (info && info.monthIndex !== undefined) return info.monthIndex; let m = r['เดือน Last updated']; let idx = getMonthIndex(m); if (idx !== 999) return idx; return 999; }
+        function getMonthStrFromLastUpdate(r) { let info = extractDateInfo(r['Last updated date']); if (info && info.monthStr) return info.monthStr; let m = r['เดือน Last updated']; if (m && String(m).trim() !== '') return String(m).trim(); return ''; }
+        function getMonthIndexExt(r) { let mIdx = getMonthIndex(r['เดือน']); if (mIdx !== 999) return mIdx; let d = r['วันที่บันทึกข้อมูล'] || r['Last updated date']; let info = extractDateInfo(d); if (info && info.monthIndex !== undefined) return info.monthIndex; return 999; }
+        function sortMonthsChronologically(a, b) { let idxA = getMonthIndex(a), idxB = getMonthIndex(b); if(idxA !== 999 && idxB !== 999 && idxA !== idxB) return idxA - idxB; if(idxA !== 999) return -1; if(idxB !== 999) return 1; return a.localeCompare(b, undefined, {numeric: true}); }
+
+        const datalabelsConfig = { formatter: (value, ctx) => { let sum = ctx.chart.data.datasets[0].data.reduce((a,b)=>a+b, 0); return (sum===0||value===0) ? null : (value*100/sum).toFixed(1)+"%"; }, color: '#fff', font: { weight: 'bold', size: 10, family: 'Sarabun' }, textStrokeColor: 'rgba(0,0,0,0.3)', textStrokeWidth: 2, textAlign: 'center', display: function(context) { let val = context.dataset.data[context.dataIndex]; let sum = context.dataset.data.reduce((a,b) => a + b, 0); return (val / sum) > 0.05; } };
+
+        function cleanDataKeys(dataArray) { if (!Array.isArray(dataArray)) return []; return dataArray.filter(row => row !== null && typeof row === 'object').map(row => { let cleanRow = {}; Object.keys(row).forEach(k => { if(k) cleanRow[k.trim()] = row[k]; }); return cleanRow; }); }
+        function parseCleanNumber(val) { if(val === null || val === undefined || val === '') return 0; let cleanStr = String(val).replace(/,/g, '').trim(); let match = cleanStr.match(/-?\d+(\.\d+)?/); return match && !isNaN(parseFloat(match[0])) ? parseFloat(match[0]) : 0; }
+        function getOppTotal(r) { return parseCleanNumber(r['Opp.รวม'] !== undefined ? r['Opp.รวม'] : (r[Object.keys(r).find(k => k && k.trim() === 'Opp.รวม')] || 0)); }
+        
+        function formatValueForInput(val, type) { 
+            if (!val) return ''; 
+            if (type === 'date') { let cleanStr = String(val).split('T')[0].split(' ')[0]; if (/^\d{2}\/\d{2}\/\d{4}$/.test(cleanStr)) { const p = cleanStr.split('/'); return `${p[2]}-${p[1]}-${p[0]}`; } if (/^\d{4}-\d{2}-\d{2}$/.test(cleanStr)) return cleanStr; return cleanStr; } 
+            else if (type === 'month') { let cleanStr = String(val).split('T')[0].split(' ')[0]; if (/^\d{4}-\d{2}$/.test(cleanStr)) return cleanStr; if (/^\d{4}-\d{2}-\d{2}$/.test(cleanStr)) return cleanStr.substring(0,7); } 
+            return val; 
+        }
+        function formatDateToThai(dateString) { if (!dateString) return ''; let cleanStr = String(dateString).split('T')[0].split(' ')[0]; if (/^\d{4}-\d{2}-\d{2}$/.test(cleanStr)) { const p = cleanStr.split('-'); return `${p[2]}/${p[1]}/${p[0]}`; } return cleanStr; }
+        function generateProjectID() { return 'PRJ-' + Date.now().toString(36).toUpperCase() + '-' + Math.random().toString(36).substring(2, 6).toUpperCase(); }
+        function getSafeVal(obj, keys) { for(let k of keys) { if(obj[k] !== undefined) return obj[k]; } let lowerKeys = keys.map(k => k.toLowerCase()); for(let k in obj) { if(lowerKeys.includes(k.toLowerCase())) return obj[k]; } return '-'; }
+
+        async function pullFromCloud() { 
+            if(!cloudApiUrl) return; setSyncUI(true, true); 
+            try { 
+                const res = await fetch(cloudApiUrl); 
+                if(res.ok) { 
+                    let json = await res.json();
+                    if (Array.isArray(json)) { projectData = cleanDataKeys(json); } 
+                    else if (json && typeof json === 'object') {
+                        let pData = json.projects || json.Projects || json.data || json.Data || json.Sheet1 || []; let tData = json.targets || json.Target || json.target || json.Targets || json.TARGET || [];
+                        if (pData.length > 0) projectData = cleanDataKeys(pData);
+                        if (tData.length > 0) { targetData = cleanDataKeys(tData); safeSetStorage('scgTargetData', JSON.stringify(targetData)); } 
+                        else { if (json['Target'] && Array.isArray(json['Target'])) { targetData = cleanDataKeys(json['Target']); safeSetStorage('scgTargetData', JSON.stringify(targetData)); } if (json['Data'] && Array.isArray(json['Data'])) { projectData = cleanDataKeys(json['Data']); } }
+                    }
+                    autoMigrateIDs(); safeSetStorage('scgProjectData', JSON.stringify(projectData)); setSyncUI(true); updateDataLists(); renderTable(); 
+                    let dash = document.getElementById('dashboardTab'); if(dash && !dash.classList.contains('hidden')) { updateFilterDropdowns(); populateTargetFilters(); updateCharts(); updateTargetTable(); } 
+                } 
+            } catch(e) { setSyncUI(false); loadLocalData(); } 
+        }
+
+        function addDealerRequest(idx) {
+            let dEl = document.getElementById(`temp-date-${idx}`), sEl = document.getElementById(`temp-store-${idx}`), rEl = document.getElementById(`temp-region-${idx}`);
+            if(!dEl || !sEl || !rEl) return; let d = dEl.value, s = sEl.value, r = rEl.value;
+            if (!s && !r) return alert("กรุณาระบุชื่อร้านค้า หรือ Dealer Region ก่อนกดเพิ่ม");
+            let text = [d ? `[${formatDateToThai(d)}]` : '', s, r ? `(${r})` : ''].filter(Boolean).join(' ');
+            let ta = document.getElementById(`input-${idx}`); if(ta) ta.value = ta.value ? ta.value + '\n' + text : text; sEl.value = ''; rEl.value = '';
+        }
+
+        function addGenericHistory(idx, title) {
+            let dEl = document.getElementById(`temp-date-${idx}`), tEl = document.getElementById(`temp-text-${idx}`);
+            if(!dEl || !tEl) return; let d = dEl.value, t = tEl.value.trim();
+            if (!t) return alert(`กรุณาระบุรายละเอียด ${title} ก่อนกดเพิ่มหัวข้อ`);
+            let text = [d ? `[${formatDateToThai(d)}]` : '', t].filter(Boolean).join(' ');
+            let ta = document.getElementById(`input-${idx}`); if(ta) ta.value = ta.value ? ta.value + '\n' + text : text; tEl.value = ''; 
+        }
+
+        async function compressImage(file) { return new Promise((resolve) => { const reader = new FileReader(); reader.readAsDataURL(file); reader.onload = (event) => { const img = new Image(); img.src = event.target.result; img.onload = () => { const canvas = document.createElement('canvas'); let width = img.width, height = img.height, maxDim = 800; if (width > height && width > maxDim) { height *= maxDim / width; width = maxDim; } else if (height > maxDim) { width *= maxDim / height; height = maxDim; } canvas.width = width; canvas.height = height; const ctx = canvas.getContext('2d'); ctx.drawImage(img, 0, 0, width, height); resolve(canvas.toDataURL('image/jpeg', 0.7)); }; }; }); }
+        function showImagePreview(inputId, base64) { let pv = document.getElementById(`${inputId}_preview`); if(base64 && base64.startsWith('data:image')) { pv.classList.remove('hidden'); document.getElementById(`${inputId}_download`).href = base64; document.getElementById(`${inputId}_download`).style.display = 'block'; document.getElementById(`${inputId}_filename`).innerHTML = `<i class="fas fa-check-circle mr-1"></i>อัปโหลดรูปสำเร็จ`; } else { pv.classList.add('hidden'); } }
+        function clearImage(inputId) { document.getElementById(inputId).value = ''; let hiddenData = document.getElementById(`${inputId}_base64`); if(hiddenData) hiddenData.value = ''; showImagePreview(inputId, ''); }
+
+        function getLocation(inputId) {
+            let btn = document.getElementById(`${inputId}_gps_btn`); let oldHtml = btn.innerHTML;
+            if (navigator.geolocation) { btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; navigator.geolocation.getCurrentPosition( (position) => { let lat = position.coords.latitude, lon = position.coords.longitude; document.getElementById(inputId).value = `https://maps.google.com/?q=${lat},${lon}`; btn.innerHTML = '<i class="fas fa-check"></i>'; setTimeout(() => btn.innerHTML = oldHtml, 2000); }, (error) => { btn.innerHTML = oldHtml; alert("ดึงพิกัด GPS ไม่สำเร็จครับ"); }, { enableHighAccuracy: true, timeout: 10000 } );
+            } else { alert("เบราว์เซอร์ไม่รองรับ GPS"); }
+        }
+
+        function generateInputs(fields, containerId) {
+            const container = document.getElementById(containerId); if (!container) return;
+            fields.forEach(field => {
+                const fieldIndex = allFields.indexOf(field), inputId = `input-${fieldIndex}`, datalistId = `datalist-${fieldIndex}`;
+                const div = document.createElement('div'); 
+                
+                if (field === 'ประวัติ Dealer Region (ขอราคาเพิ่ม)') { div.className = "col-span-1 md:col-span-3 lg:col-span-4 bg-blue-50/30 p-5 rounded-2xl border border-blue-100"; div.innerHTML = `<label class="block text-[15px] font-bold text-blue-800 mb-2"><i class="fas fa-store-alt mr-2 text-blue-500"></i>${field}</label><div class="flex flex-col md:flex-row gap-3 mb-4 p-3 bg-white rounded-xl shadow-sm border border-gray-100"><div class="w-full md:w-40"><label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">วันที่ขอราคา</label><input type="date" id="temp-date-${fieldIndex}" class="w-full border border-gray-200 rounded-lg p-2 text-sm"></div><div class="w-full flex-[2]"><label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">ชื่อร้านค้า</label><input type="text" id="temp-store-${fieldIndex}" list="datalist-${allFields.indexOf('ร้านผู้แทนจำหน่าย')}" class="w-full border border-gray-200 rounded-lg p-2 text-sm" onclick="this.value='';"></div><div class="w-full flex-1"><label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">Dealer Region</label><input type="text" id="temp-region-${fieldIndex}" list="datalist-${allFields.indexOf('Dealer Region')}" class="w-full border border-gray-200 rounded-lg p-2 text-sm" onclick="this.value='';"></div><div class="w-full md:w-auto flex items-end pb-[1px] gap-2"><button type="button" onclick="addDealerRequest(${fieldIndex})" class="bg-blue-500 text-white px-5 py-2 rounded-lg text-sm font-medium w-full md:w-auto shadow-sm"><i class="fas fa-plus"></i> เพิ่ม</button></div></div><textarea id="${inputId}" class="w-full border border-gray-200 rounded-xl p-3 text-sm shadow-inner bg-white" rows="3"></textarea>`; container.appendChild(div); return; }
+                if (field === 'ปัญหาการใช้งานมวลเบา' || field === 'In Action') { let theme = field === 'ปัญหาการใช้งานมวลเบา' ? 'red' : 'indigo'; let icon = field === 'ปัญหาการใช้งานมวลเบา' ? 'fa-exclamation-triangle' : 'fa-tasks'; div.className = `col-span-1 md:col-span-3 lg:col-span-4 bg-${theme}-50/30 p-5 rounded-2xl border border-${theme}-100`; div.innerHTML = `<label class="block text-[15px] font-bold text-${theme}-800 mb-2"><i class="fas ${icon} mr-2 text-${theme}-500"></i>${field}</label><div class="flex flex-col md:flex-row gap-3 mb-4 p-3 bg-white rounded-xl shadow-sm border border-gray-100"><div class="w-full md:w-40"><label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">วันที่</label><input type="date" id="temp-date-${fieldIndex}" class="w-full border border-gray-200 rounded-lg p-2 text-sm"></div><div class="w-full flex-[3]"><label class="block text-[10px] font-bold text-gray-400 uppercase mb-1">รายละเอียดหัวข้อ</label><input type="text" id="temp-text-${fieldIndex}" list="datalist-history-${fieldIndex}" autocomplete="off" class="w-full border border-gray-200 rounded-lg p-2 text-sm" placeholder="พิมพ์รายละเอียดที่นี่..." onkeypress="if(event.key==='Enter'){event.preventDefault();addGenericHistory(${fieldIndex}, '${field}');}"><datalist id="datalist-history-${fieldIndex}"></datalist></div><div class="w-full md:w-auto flex items-end pb-[1px] gap-2"><button type="button" onclick="addGenericHistory(${fieldIndex}, '${field}')" class="bg-${theme}-500 hover:bg-${theme}-600 text-white px-5 py-2 rounded-lg text-sm font-medium w-full md:w-auto shadow-sm transition"><i class="fas fa-plus"></i> เพิ่มหัวข้อ</button></div></div><textarea id="${inputId}" class="w-full border border-gray-200 rounded-xl p-3 text-sm shadow-inner bg-white" rows="4"></textarea>`; container.appendChild(div); return; }
+                if (field === 'แผนที่') { div.className = "col-span-1 md:col-span-2"; div.innerHTML = `<label class="block text-sm font-medium text-gray-700 mb-1.5">${field}</label><div class="flex gap-2"><input type="text" id="${inputId}" class="w-full border border-gray-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition bg-white" placeholder="วางลิงก์แผนที่"><button type="button" id="${inputId}_gps_btn" onclick="getLocation('${inputId}')" class="bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 rounded-xl transition shadow-sm font-medium flex items-center justify-center shrink-0" title="ดึงพิกัด GPS"><i class="fas fa-crosshairs"></i></button><a href="https://maps.google.com/" target="_blank" class="bg-emerald-100 hover:bg-emerald-200 text-emerald-700 px-4 rounded-xl transition shadow-sm font-medium flex items-center justify-center shrink-0" title="เปิด Google Maps"><i class="fas fa-map-marked-alt"></i></a></div><p class="text-[10px] text-gray-500 mt-1.5"><i class="fas fa-info-circle mr-1"></i>กดเพื่อดึงพิกัด หรือเปิดแผนที่แล้วคัดลอกลิงก์มาวาง</p>`; container.appendChild(div); return; }
+                if (field === 'รูปหน้างาน') { div.className = "col-span-1 md:col-span-2"; div.innerHTML = `<label class="block text-sm font-medium text-gray-700 mb-1.5">${field}</label><div class="flex flex-col gap-2"><input type="file" accept="image/*" id="${inputId}" class="w-full border border-gray-200 rounded-xl p-2 text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer transition bg-white"><input type="hidden" id="${inputId}_base64"><div id="${inputId}_preview" class="hidden flex items-center justify-between bg-blue-50 p-2.5 rounded-lg border border-blue-200 shadow-sm mt-1"><span class="text-xs text-blue-800 font-medium whitespace-nowrap overflow-hidden text-ellipsis mr-2" id="${inputId}_filename"></span><div class="flex gap-2 shrink-0"><a href="#" id="${inputId}_download" download="Site_Photo.jpg" class="bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs hover:bg-blue-600 font-medium transition shadow-sm flex items-center"><i class="fas fa-download mr-1"></i> ดู/โหลดรูป</a><button type="button" onclick="clearImage('${inputId}')" class="bg-red-100 text-red-600 px-3 py-1.5 rounded-lg text-xs hover:bg-red-200 font-medium transition shadow-sm flex items-center"><i class="fas fa-trash-alt"></i></button></div></div></div>`; container.appendChild(div); setTimeout(() => { let fileInp = document.getElementById(inputId); if(fileInp) { fileInp.addEventListener('change', async (e) => { if(e.target.files.length > 0) { let b64 = await compressImage(e.target.files[0]); document.getElementById(`${inputId}_base64`).value = b64; showImagePreview(inputId, b64); } }); } }, 100); return; }
+                if (field === 'เดือน' || field === 'เดือน Last updated') { div.innerHTML = `<label class="block text-sm font-medium text-gray-700 mb-1.5">${field}</label><select id="${inputId}" class="w-full border border-gray-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition bg-white cursor-pointer"><option value="">- ระบุเดือน -</option></select>`; container.appendChild(div); return; }
+
+                let inputType = 'text', additionalAttrs = '', useDatalist = false;
+                if (field === 'Project ID') { inputType = 'text'; additionalAttrs = `readonly class="w-full bg-gray-100 text-gray-500 font-bold border border-gray-200 rounded-xl p-2.5 text-sm cursor-not-allowed" placeholder="สร้างอัตโนมัติ"`; }
+                else if (field === 'Created by') { additionalAttrs = `readonly class="w-full bg-gray-100 text-gray-500 font-bold border border-gray-200 rounded-xl p-2.5 text-sm cursor-not-allowed"`; }
+                else if (field.includes('วันที่') || field === 'Last updated date') inputType = 'date';
+                else if (field.includes('เดือนที่เริ่มใช้') || field.includes('เดือนที่ปิดการขาย')) inputType = 'month';
+                else if (field.includes('หน่วย')) additionalAttrs = `value="ตร.ม." readonly class="w-full bg-gray-100 text-gray-500 border border-gray-200 rounded-xl p-2.5 text-sm cursor-not-allowed"`;
+                else if (['Opp.รวม', 'Oppรวม7.5cm/9cm', 'Opp.Other sizeรวม'].includes(field)) additionalAttrs = `readonly class="w-full border border-blue-200 bg-blue-50 text-blue-800 font-bold rounded-xl p-2.5 text-sm" placeholder="0"`;
+                else if (field.includes('Opp') && !['ที่มาของ Opp'].includes(field)) { inputType = 'text'; additionalAttrs = `inputmode="decimal" class="w-full border border-gray-200 rounded-xl p-2.5 text-sm" placeholder="ระบุปริมาณ" oninput="calculateTotalOpp()"`; } 
+                else if (fieldsG5.includes(field) || field.includes('ราคา')) { inputType = 'text'; additionalAttrs = `inputmode="decimal" class="w-full border border-gray-200 rounded-xl p-2.5 text-sm" placeholder="0"`; } 
+                else { additionalAttrs = `class="w-full border border-gray-200 rounded-xl p-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 transition bg-white" placeholder="ระบุข้อมูล"`; if (inputType === 'text') useDatalist = true; }
+                div.innerHTML = `<label class="block text-sm font-medium text-gray-700 mb-1.5">${field}</label><input type="${inputType}" id="${inputId}" ${additionalAttrs}${useDatalist ? ` list="${datalistId}" autocomplete="off"` : ''}>${useDatalist ? `<datalist id="${datalistId}"></datalist>` : ''}`; container.appendChild(div);
+            });
+        }
+
+        function calculateTotalOpp() { let getVal = (name) => { let el = document.getElementById(`input-${allFields.indexOf(name)}`); return el ? parseCleanNumber(el.value) : 0; }; let sum1 = getVal('Opp7.5cm') + getVal('Opp9cm'); let sum2 = getVal('Opp10cm') + getVal('Opp12.5cm') + getVal('Opp15cm') + getVal('Opp17.5cm') + getVal('Opp20cm'); let elSum1 = document.getElementById(`input-${allFields.indexOf('Oppรวม7.5cm/9cm')}`), elSum2 = document.getElementById(`input-${allFields.indexOf('Opp.Other sizeรวม')}`), elTotal = document.getElementById(`input-${allFields.indexOf('Opp.รวม')}`); if(elSum1) elSum1.value = sum1 > 0 ? sum1 : ''; if(elSum2) elSum2.value = sum2 > 0 ? sum2 : ''; if(elTotal) elTotal.value = (sum1 + sum2) > 0 ? (sum1 + sum2) : ''; }
+        async function saveToLocalStorage() { safeSetStorage('scgProjectData', JSON.stringify(projectData)); await pushToCloud(); }
+        function autoMigrateIDs() { let needsSave = false; projectData.forEach(r => { if(!r['Project ID'] || String(r['Project ID']).trim() === '') { r['Project ID'] = generateProjectID(); needsSave = true; } }); if(needsSave) safeSetStorage('scgProjectData', JSON.stringify(projectData)); }
+
+        function loadLocalData() { 
+            try { projectData = cleanDataKeys(JSON.parse(safeGetStorage('scgProjectData') || '[]')); } catch(e) { projectData = []; } 
+            try { targetData = cleanDataKeys(JSON.parse(safeGetStorage('scgTargetData') || '[]')); } catch(e) { targetData = []; }
+            autoMigrateIDs(); setSyncUI(false); updateDataLists(); renderTable(); let dash = document.getElementById('dashboardTab'); if(dash && !dash.classList.contains('hidden')) { updateFilterDropdowns(); populateTargetFilters(); updateCharts(); updateTargetTable(); } 
+        }
+
+        function setSyncUI(isOn, isLoad = false) { 
+            const ui = document.getElementById('syncStatus'); if (!ui) return; 
+            if (isLoad) { ui.innerHTML = '<span class="w-3 h-3 border-2 border-white spinner-border rounded-full animate-spin mr-1 inline-block"></span> Syncing...'; ui.className = "bg-blue-500 text-white px-3 py-1 rounded-md text-xs shadow-sm flex items-center"; } 
+            else if (isOn) { ui.innerHTML = '<i class="fas fa-check-circle mr-1 text-emerald-300"></i> Online'; ui.className = "bg-slate-700 border border-slate-600 text-white px-3 py-1 rounded-md text-xs shadow-sm flex items-center"; document.getElementById('btnPull').classList.remove('hidden'); } 
+            else { ui.innerHTML = '<i class="fas fa-wifi mr-1"></i> Offline'; ui.className = "bg-slate-500 text-white px-3 py-1 rounded-md text-xs shadow-sm flex items-center"; document.getElementById('btnPull').classList.add('hidden'); } 
+        }
+
+        async function pushToCloud() { if(!cloudApiUrl) { setSyncUI(false); return; } setSyncUI(true, true); try { const res = await fetch(cloudApiUrl, { method: 'POST', redirect: 'follow', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(projectData) }); if(res.ok) setSyncUI(true); else { setSyncUI(false); } } catch(e) { setSyncUI(false); }  }
+        function saveCloudSettings() { cloudApiUrl = document.getElementById('apiUrlInput').value.trim(); if(cloudApiUrl) safeSetStorage('scgApiUrl', cloudApiUrl); else safeRemoveStorage('scgApiUrl'); document.getElementById('cloudModal').classList.add('hidden'); if(cloudApiUrl) pullFromCloud(); else loadLocalData(); }
+        function clearCloudSettings() { if(confirm('ตัดการเชื่อมต่อกับ Google Sheets ใช่หรือไม่?')) { cloudApiUrl = ''; safeRemoveStorage('scgApiUrl'); document.getElementById('apiUrlInput').value = ''; setSyncUI(false); alert('ยกเลิกการเชื่อมต่อแล้ว'); } }
+        function extractFromText() { let text = document.getElementById('pasteTextInput').value, mc = 0, lines = text.split('\n').map(l=>l.trim()).filter(l=>l); const km = [{k:["ชื่อโครงการ"], f:"ชื่อโครงการ"}, {k:["อำเภอ"], f:"อำเภอ"}, {k:["จังหวัด"], f:"จังหวัด"}, {k:["ผู้รับเหมา"], f:"ผู้รับเหมา"}, {k:["เบอร์โทร"], f:"เบอร์โทร"}, {k:["ผู้แทนจำหน่าย"], f:"ร้านผู้แทนจำหน่าย"}]; lines.forEach((l, i) => { let m = km.find(x => x.k.some(kw => l.toLowerCase().includes(kw))); if(m && i+1 < lines.length) { let inp = document.getElementById(`input-${allFields.indexOf(m.f)}`); if(inp && !inp.value) { inp.value = m.f==="ร้านผู้แทนจำหน่าย" ? lines[i+1].replace(/[0-9]/g,'').trim() : lines[i+1]; mc++; } } }); let st = document.getElementById('autoFillStatus'); st.classList.remove('hidden'); st.innerHTML = mc>0?`<i class="fas fa-check text-green-500"></i> ดึงได้ ${mc} ช่อง`:`ไม่มีข้อมูลตรงกัน`; document.getElementById('pasteTextInput').value=''; }
+        function initTableHeader() { document.getElementById('tableHead').innerHTML = '<tr>' + allFields.map(f => `<th>${f}</th>`).join('') + `<th class="sticky-col text-center shadow-sm">Manage</th></tr>`; }
+
+        function renderTable() {
+            let st = (document.getElementById('searchInput')||{}).value?.toLowerCase() || ''; let sc = (document.getElementById('searchContractorInput')||{}).value?.toLowerCase() || ''; 
+            let tb = document.getElementById('tableBody'); if(!tb) return;
+            let d = projectData.map((r, i) => ({ ...r, oIdx: i }));
+            let dash = document.getElementById('dashboardTab');
+            if(dash && !dash.classList.contains('hidden')) {
+                let getVals = (id) => Array.from(document.getElementById(id)?.selectedOptions || []).map(o=>o.value).filter(v=>v);
+                let [y, m, cg, sr, sp, pd, dr, pr] = ['filterYear','filterMonth','filterCG','filterSR','globalFilterSpec','globalFilterProduct','filterDealerRegion','filterProjectRegion'].map(getVals);
+                d = d.filter(r => (y.length===0 || y.includes(String(r['ปี']||''))) && (m.length===0 || m.includes(String(r['เดือน']||''))) && (cg.length===0 || cg.includes(String(r['Customer Group']||''))) && (sr.length===0 || sr.includes(String(r['SR Resp.']||''))) && (sp.length===0 || sp.includes(String(r['Product Spec เดิม']||''))) && (pd.length===0 || pd.includes(String(r['Product']||''))) && (dr.length===0 || dr.includes(String(r['Dealer Region']||''))) && (pr.length===0 || pr.includes(String(r['Project Region']||''))) );
+            }
+            if(sc) d = d.filter(r => String(r['ผู้รับเหมา'] || '').toLowerCase().includes(sc));
+            if(st) d = d.filter(r => Object.values(r).some(v => String(v).toLowerCase().includes(st)));
+            let countEl = document.getElementById('tableRecordCount'); if(countEl) countEl.innerText = `(${d.length} records)`;
+            let htmlStr = '';
+            d.reverse().slice(0, 150).forEach(r => { htmlStr += `<tr class="transition-colors">` + allFields.map(f => { let val = r[f] || ''; let displayVal = val || '-'; if (['วันที่บันทึกข้อมูล', 'Last updated date', 'เดือนที่เริ่มใช้', 'เดือนที่ปิดการขาย'].includes(f)) { displayVal = formatDisplayDate(val, 'DD/MM/YYYY'); } else if (f === 'Project ID') { displayVal = `<span class="text-[10px] font-mono bg-slate-100 text-slate-500 px-2 py-0.5 rounded border border-slate-200">${val}</span>`; } else if (f === 'รูปหน้างาน') { if (val.startsWith('data:image')) { displayVal = `<a href="${val}" download="SitePhoto_${r['ชื่อโครงการ']||'IMG'}.jpg" class="text-blue-600 hover:text-blue-800 text-xs font-semibold flex items-center"><i class="fas fa-download mr-1"></i> โหลดรูป</a>`; } else if (val) { displayVal = `<span class="text-slate-500 bg-slate-100 px-2 py-1 rounded text-xs"><i class="fas fa-file-image mr-1"></i>${val}</span>`; } } else if (f === 'แผนที่' && val.startsWith('http')) { displayVal = `<a href="${val}" target="_blank" class="text-emerald-600 hover:text-emerald-800 font-medium underline flex items-center text-xs"><i class="fas fa-map-marked-alt mr-1"></i>ดูแผนที่</a>`; } else if (val && val.length > 50) { displayVal = `<div class="truncate max-w-[200px]" title="${val.replace(/"/g, '&quot;')}">${val}</div>`; } return `<td>${displayVal}</td>`; }).join('') + `<td class="sticky-col text-center bg-white shadow-[inset_1px_0_0_#f1f5f9]"><button onclick="editRow(${r.oIdx})" class="text-blue-500 hover:bg-blue-50 w-8 h-8 rounded mr-1 transition border border-transparent hover:border-blue-200"><i class="fas fa-edit"></i></button><button onclick="deleteRow(${r.oIdx})" class="text-red-500 hover:bg-red-50 w-8 h-8 rounded transition border border-transparent hover:border-red-200"><i class="fas fa-trash"></i></button></td></tr>`; });
+            if(d.length > 150) htmlStr += `<tr><td colspan="${allFields.length + 1}" class="text-center py-4 text-blue-600 font-bold bg-slate-50">Showing last 150 records</td></tr>`; tb.innerHTML = htmlStr;
+        }
+
+        function populateTargetFilters() {
+            let years = new Set(), regions = new Set(), products = new Set();
+            targetData.forEach(r => { let yVal = getSafeVal(r, ['Year', 'year', 'ปี']), rVal = getSafeVal(r, ['Region', 'region', 'ภาค', 'Project Region']), pVal = getSafeVal(r, ['Product Group', 'Product group', 'กลุ่มสินค้า', 'Product', 'Product Spec']); if(yVal && yVal !== '-') years.add(String(yVal).trim()); if(rVal && rVal !== '-') regions.add(String(rVal).trim()); if(pVal && pVal !== '-') products.add(String(pVal).trim()); });
+            let ySel = document.getElementById('targetFilterYear'); if(ySel) { let currY = ySel.value; ySel.innerHTML = '<option value="ALL">All Years</option>' + Array.from(years).sort().reverse().map(y => `<option value="${y}">${y}</option>`).join(''); if(Array.from(years).includes(currY)) ySel.value = currY; }
+            let rSel = document.getElementById('targetFilterRegion'); if(rSel) { let currR = rSel.value; rSel.innerHTML = '<option value="ALL">All Regions</option>' + Array.from(regions).sort().map(reg => `<option value="${reg}">${reg}</option>`).join(''); if(Array.from(regions).includes(currR)) rSel.value = currR; }
+            let pSel = document.getElementById('targetFilterProduct'); if(pSel) { let currP = pSel.value; pSel.innerHTML = '<option value="ALL">All Products</option>' + Array.from(products).sort().map(p => `<option value="${p}">${p}</option>`).join(''); if(Array.from(products).includes(currP)) pSel.value = currP; }
+        }
+
+        function updateTargetTable() {
+            let yFilter = document.getElementById('targetFilterYear')?.value || 'ALL', rFilter = document.getElementById('targetFilterRegion')?.value || 'ALL', pFilter = document.getElementById('targetFilterProduct')?.value || 'ALL';
+            let d = targetData;
+            if(yFilter !== 'ALL') d = d.filter(r => String(getSafeVal(r, ['Year', 'year', 'ปี'])).trim() === yFilter);
+            if(rFilter !== 'ALL') d = d.filter(r => String(getSafeVal(r, ['Region', 'region', 'ภาค', 'Project Region'])).trim() === rFilter);
+            if(pFilter !== 'ALL') d = d.filter(r => String(getSafeVal(r, ['Product Group', 'Product group', 'กลุ่มสินค้า', 'Product', 'Product Spec'])).trim() === pFilter);
+            let tbody = document.getElementById('targetRegionTableBody'); if(!tbody) return;
+            if(d.length === 0) { tbody.innerHTML = `<tr><td colspan="16" class="text-center py-8 text-slate-400">ไม่มีข้อมูล Target ในระบบ (กรุณาเพิ่มข้อมูลใน Google Sheets แถบ 'Target')</td></tr>`; return; }
+            let html = '', monthKeys = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], grandTotals = Array(12).fill(0), absoluteTotal = 0;
+            d.sort((a,b) => { let aY = String(getSafeVal(a, ['Year', 'year', 'ปี'])).trim(), bY = String(getSafeVal(b, ['Year', 'year', 'ปี'])).trim(), aR = String(getSafeVal(a, ['Region', 'region', 'ภาค', 'Project Region'])).trim(), bR = String(getSafeVal(b, ['Region', 'region', 'ภาค', 'Project Region'])).trim(), aP = String(getSafeVal(a, ['Product Group', 'Product group', 'กลุ่มสินค้า', 'Product', 'Product Spec'])).trim(), bP = String(getSafeVal(b, ['Product Group', 'Product group', 'กลุ่มสินค้า', 'Product', 'Product Spec'])).trim(); if(aY !== bY) return bY.localeCompare(aY); if(aR !== bR) return aR.localeCompare(bR); return aP.localeCompare(bP); });
+            d.forEach(r => { html += `<tr class="hover:bg-blue-50/50 transition-colors">`; html += `<td class="text-left sticky left-0 bg-white shadow-[inset_-1px_0_0_#e2e8f0] z-10 w-[80px] min-w-[80px]">${getSafeVal(r, ['Year', 'year', 'ปี'])}</td>`; html += `<td class="text-left sticky left-[80px] bg-white shadow-[inset_-1px_0_0_#e2e8f0] z-10 font-medium w-[120px] min-w-[120px] whitespace-normal break-words">${getSafeVal(r, ['Region', 'region', 'ภาค', 'Project Region'])}</td>`; html += `<td class="text-left sticky left-[200px] bg-white shadow-[inset_-1px_0_0_#e2e8f0] z-10 text-blue-700 w-[200px] min-w-[200px] whitespace-normal break-words">${getSafeVal(r, ['Product Group', 'Product group', 'กลุ่มสินค้า', 'Product', 'Product Spec'])}</td>`; let rowTotal = 0; monthKeys.forEach((m, idx) => { let val = parseCleanNumber(getSafeVal(r, [m, m.toLowerCase(), m.toUpperCase()])); rowTotal += val; grandTotals[idx] += val; html += `<td>${val > 0 ? val.toLocaleString(undefined, {maximumFractionDigits:2}) : '-'}</td>`; }); absoluteTotal += rowTotal; html += `<td class="font-bold bg-blue-50 border-l border-blue-100 text-blue-800">${rowTotal > 0 ? rowTotal.toLocaleString(undefined, {maximumFractionDigits:2}) : '-'}</td>`; html += `</tr>`; });
+            html += `<tr class="bg-slate-100 border-t-2 border-slate-200">`; html += `<td colspan="3" class="text-center font-bold text-slate-800 sticky left-0 bg-slate-100 shadow-[inset_-1px_0_0_#e2e8f0] z-20 uppercase text-xs tracking-wider py-3">Grand Total</td>`; grandTotals.forEach(val => { html += `<td class="font-bold text-slate-800 py-3">${val > 0 ? val.toLocaleString(undefined, {maximumFractionDigits:2}) : '-'}</td>`; }); html += `<td class="font-extrabold text-blue-900 bg-blue-200 border-l border-blue-300 py-3 text-sm">${absoluteTotal > 0 ? absoluteTotal.toLocaleString(undefined, {maximumFractionDigits:2}) : '-'}</td>`; html += `</tr>`;
+            tbody.innerHTML = html;
+        }
+
+        function populateSsTableYear() { let years = new Set(); projectData.forEach(r => { let y = getYearFromLastUpdate(r); if(y) years.add(y); }); let yArr = Array.from(years).sort().reverse(); let sel = document.getElementById('ssTableYear'); if(!sel) return; let curr = sel.value; sel.innerHTML = '<option value="all">ALL YEARS</option>' + yArr.map(y => `<option value="${y}">${y}</option>`).join(''); if (yArr.includes(curr)) sel.value = curr; else if (yArr.length > 0 && curr === 'all') sel.value = 'all'; else if (yArr.length > 0) sel.value = yArr[0]; }
+        function populateBacklogFilters() { let specs = new Set(); projectData.forEach(r => { let spec = r['Product Spec เดิม'], prod = r['Product']; if(spec && spec.trim()) specs.add(spec.trim()); if(prod && prod.trim()) specs.add(prod.trim()); }); let sel = document.getElementById('backlogFilterSpec'); if(sel) { let curr = sel.value; sel.innerHTML = '<option value="ALL">All Products</option>' + Array.from(specs).sort().map(s => `<option value="${s}">${s}</option>`).join(''); if(Array.from(specs).includes(curr)) sel.value = curr; } }
+
+        function updateDataLists() { 
+            let sets = {}; allFields.forEach(f => sets[f] = new Set()); let histSets = { 'ปัญหาการใช้งานมวลเบา': new Set(), 'In Action': new Set() };
+            projectData.forEach(row => { Object.keys(row).forEach(k => { let val = row[k]; if(sets[k] && val != null && String(val).trim() !== '') { sets[k].add(String(val).trim()); if (histSets[k]) { String(val).split('\n').forEach(line => { let textOnly = line.replace(/\[.*?\]/g, '').trim(); if (textOnly) histSets[k].add(textOnly); }); } } }); });
+            allFields.forEach((field, index) => { let arr = Array.from(sets[field]); if (field === 'เดือน' || field === 'เดือน Last updated') { arr.sort(sortMonthsChronologically); let sel = document.getElementById(`input-${index}`); if (sel) { let currentVal = sel.value; sel.innerHTML = `<option value="">- ระบุเดือน -</option>` + arr.map(v => `<option value="${v}">${v}</option>`).join(''); if(currentVal) sel.value = currentVal; } } else { arr.sort(); let dl = document.getElementById(`datalist-${index}`); if (dl) dl.innerHTML = arr.map(v => `<option value="${v}">`).join(''); } if (histSets[field]) { let hdl = document.getElementById(`datalist-history-${index}`); if (hdl) hdl.innerHTML = Array.from(histSets[field]).sort().map(v => `<option value="${v}">`).join(''); } });
+            populateSsTableYear(); populateBacklogFilters();
+        }
+
+        async function saveData() {
+            let pName = document.getElementById(`input-${allFields.indexOf('ชื่อโครงการ')}`); if (!pName || !pName.value) return alert("กรุณาระบุ 'ชื่อโครงการ' ก่อนบันทึก");
+            let nr = {};
+            allFields.forEach((f, i) => { let inp = document.getElementById(`input-${i}`), v = inp ? inp.value : ''; if (f === 'รูปหน้างาน') { let b64 = document.getElementById(`input-${i}_base64`)?.value; v = b64 ? b64 : (editIndex>=0 ? projectData[editIndex][f] : ''); } else if (inp?.type === 'date' || f.includes('วันที่') || f.toLowerCase().includes('date')) { if (v && String(v).includes('T')) v = String(v).split('T')[0]; if (v && String(v).includes(' ')) v = String(v).split(' ')[0]; v = formatDateToThai(v); } else if (inp?.type === 'month' || f.includes('เดือนที่')) { if (v && String(v).includes('T')) v = String(v).split('T')[0]; if (v && String(v).includes(' ')) v = String(v).split(' ')[0]; } if ((f.includes('Opp')||fieldsG5.includes(f)||f.includes('ราคา')) && v) { let c = String(v).replace(/,/g,'').trim(); if(!isNaN(c) && c!=='') v = c; } nr[f] = v; });
+            if(editIndex>=0) { nr['Project ID'] = projectData[editIndex]['Project ID']; projectData[editIndex] = nr; alert("อัปเดตข้อมูลสำเร็จ!"); cancelEdit(); } else { nr['Project ID'] = generateProjectID(); projectData.push(nr); alert("บันทึกข้อมูลสำเร็จ!"); document.getElementById('projectForm').reset(); document.querySelectorAll('input[type="hidden"]').forEach(el=>el.value=''); document.querySelectorAll('[id$="_preview"]').forEach(el=>el.classList.add('hidden')); let cbIdx = allFields.indexOf('Created by'); if(cbIdx !== -1) { let cbEl = document.getElementById(`input-${cbIdx}`); if(cbEl && currentUser) cbEl.value = currentUser; } }
+            ['Opp.รวม', 'Oppรวม7.5cm/9cm', 'Opp.Other sizeรวม'].forEach(f => { let el=document.getElementById(`input-${allFields.indexOf(f)}`); if(el) el.value=""; });
+            await saveToLocalStorage(); updateDataLists(); renderTable(); switchTab('dashboardTab');
+        }
+
+        function editRow(i) { 
+            editIndex = i; let r = projectData[i]; 
+            allFields.forEach((f, idx) => { let inp = document.getElementById(`input-${idx}`); if (f === 'รูปหน้างาน') { if(inp) inp.value = ''; let b64Inp = document.getElementById(`input-${idx}_base64`); if(b64Inp) b64Inp.value = r[f] || ''; if (r[f] && r[f].startsWith('data:image')) { showImagePreview(`input-${idx}`, r[f]); } else if (r[f]) { document.getElementById(`input-${idx}_preview`).classList.remove('hidden'); document.getElementById(`input-${idx}_filename`).innerHTML = `<i class="fas fa-file mr-1"></i>มีไฟล์รูปเดิมบันทึกไว้`; document.getElementById(`input-${idx}_download`).style.display = 'none'; } else { showImagePreview(`input-${idx}`, ''); } } else if (inp) { let val = r[f] || ''; if ((f === 'เดือน' || f === 'เดือน Last updated') && val) { let optExists = Array.from(inp.options).some(opt => opt.value === val); if (!optExists) { inp.insertAdjacentHTML('beforeend', `<option value="${val}">${val}</option>`); } } inp.value = formatValueForInput(val, inp.type); } }); 
+            document.getElementById('saveBtn').innerHTML = '<i class="fas fa-check mr-1"></i> อัปเดตข้อมูล'; document.getElementById('saveBtn').className = "bg-emerald-600 text-white px-5 py-2 rounded-xl font-medium shadow-md hover:bg-emerald-700 transition-all"; document.getElementById('cancelBtn').classList.remove('hidden'); switchTab('formTab'); 
+        }
+        
+        function cancelEdit() { 
+            editIndex = -1; document.getElementById('projectForm').reset(); document.querySelectorAll('input[type="hidden"]').forEach(el=>el.value=''); document.querySelectorAll('[id$="_preview"]').forEach(el=>el.classList.add('hidden')); ['Opp.รวม', 'Oppรวม7.5cm/9cm', 'Opp.Other sizeรวม'].forEach(f => { let el=document.getElementById(`input-${allFields.indexOf(f)}`); if(el) el.value=""; }); let cbIdx = allFields.indexOf('Created by'); if(cbIdx !== -1) { let cbEl = document.getElementById(`input-${cbIdx}`); if(cbEl && currentUser) cbEl.value = currentUser; }
+            document.getElementById('saveBtn').innerHTML = '<i class="fas fa-save mr-1"></i> บันทึกข้อมูล'; document.getElementById('saveBtn').className = "bg-blue-600 text-white px-5 py-2 rounded-xl font-medium shadow-md hover:bg-blue-700 transition-all"; document.getElementById('cancelBtn').classList.add('hidden'); 
+        }
+        
+        async function deleteRow(i) { if(confirm('ลบข้อมูลนี้ใช่หรือไม่?')) { projectData.splice(i, 1); await saveToLocalStorage(); updateDataLists(); renderTable(); updateFilterDropdowns(); updateCharts(); } }
+        async function clearData() { if(confirm("ล้างข้อมูลทั้งหมดใช่หรือไม่?")) { projectData = []; await saveToLocalStorage(); updateDataLists(); renderTable(); updateFilterDropdowns(); updateCharts(); alert("ล้างข้อมูลสำเร็จ"); } }
+
+        function exportToExcel() { let pass = prompt("กรุณากรอกรหัสผ่านเพื่อยืนยันการส่งออกข้อมูล Excel:"); if (pass === null) return; if (pass !== "Guide081#") { alert("รหัสผ่านไม่ถูกต้อง! ไม่สามารถส่งออกข้อมูลได้"); return; } if (projectData.length === 0) { alert("ไม่มีข้อมูลสำหรับส่งออก"); return; } let exportData = projectData.map(row => { let newRow = {}; allFields.forEach(f => { newRow[f] = row[f] || ""; }); return newRow; }); try { const worksheet = XLSX.utils.json_to_sheet(exportData); const workbook = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(workbook, worksheet, "ProjectData"); let d = new Date(); let fileName = `Sales_Data_${d.getFullYear()}${(d.getMonth()+1).toString().padStart(2,'0')}${d.getDate().toString().padStart(2,'0')}.xlsx`; XLSX.writeFile(workbook, fileName); } catch(e) { alert("เกิดข้อผิดพลาดในการสร้างไฟล์ Excel: " + e.message); } }
+        function exportTableToExcel(tableId, filenamePrefix) { let table = document.getElementById(tableId); if (!table) return; try { let wb = XLSX.utils.book_new(); let ws = XLSX.utils.table_to_sheet(table); XLSX.utils.book_append_sheet(wb, ws, "Data"); XLSX.writeFile(wb, `${filenamePrefix}_Export.xlsx`); } catch(e) { alert("เกิดข้อผิดพลาดในการสร้างไฟล์ Excel: " + e.message); } }
+
+        const getExportOptions = (elementId) => ({ scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', onclone: (clonedDoc) => { let el = clonedDoc.getElementById(elementId); if(el) { el.style.width = 'max-content'; el.style.minWidth = '100%'; let scrolls = el.querySelectorAll('.overflow-x-auto, .overflow-y-auto, .overflow-hidden'); scrolls.forEach(node => { node.classList.remove('overflow-x-auto', 'overflow-y-auto', 'overflow-hidden'); node.style.overflow = 'visible'; }); let stickies = el.querySelectorAll('.sticky, .sticky-col'); stickies.forEach(node => { node.style.position = 'static'; node.classList.remove('sticky', 'sticky-col'); node.style.boxShadow = 'none'; }); let btns = el.querySelectorAll('.export-buttons button'); btns.forEach(btn => btn.style.display = 'none'); let links = el.querySelectorAll('.table-link'); links.forEach(a => { let span = document.createElement('span'); span.innerHTML = a.innerHTML; span.className = a.className; span.classList.remove('table-link', 'hover:underline', 'cursor-pointer'); a.parentNode.replaceChild(span, a); }); } } });
+        async function exportSectionAsImage(elementId, filenamePrefix, btnEvent) { let el = document.getElementById(elementId); if(!el) return; let btn = btnEvent; let oldHtml = ''; if(btn) { oldHtml = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; btn.disabled = true; } try { const canvas = await html2canvas(el, getExportOptions(elementId)); const link = document.createElement('a'); link.download = filenamePrefix + '_' + new Date().getTime() + '.jpg'; link.href = canvas.toDataURL('image/jpeg', 1.0); link.click(); } catch(e) { alert("เกิดข้อผิดพลาดในการสร้างรูปภาพ: " + e.message); } finally { if(btn) { btn.innerHTML = oldHtml; btn.disabled = false; } } }
+        async function exportSectionAsPDF(elementId, filenamePrefix, btnEvent) { let el = document.getElementById(elementId); if(!el) return; let btn = btnEvent; let oldHtml = ''; if(btn) { oldHtml = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; btn.disabled = true; } try { const canvas = await html2canvas(el, getExportOptions(elementId)); const imgData = canvas.toDataURL('image/jpeg', 1.0); const { jsPDF } = window.jspdf; let pdf = new jsPDF('l', 'mm', 'a4'); let pdfWidth = pdf.internal.pageSize.getWidth(); let pdfHeight = (canvas.height * pdfWidth) / canvas.width; pdf = new jsPDF(canvas.width > canvas.height ? 'l' : 'p', 'mm', [pdfWidth, pdfHeight]); pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight); pdf.save(filenamePrefix + '.pdf'); } catch(e) { alert("เกิดข้อผิดพลาดในการสร้าง PDF: " + e.message); } finally { if(btn) { btn.innerHTML = oldHtml; btn.disabled = false; } } }
+
+        async function importFromExcel(event) {
+            let file = event.target.files[0]; if(!file) return; let reader = new FileReader();
+            reader.onload = async function(e) {
+                try {
+                    let data = new Uint8Array(e.target.result); let workbook = XLSX.read(data, {type: 'array'}); 
+                    if(workbook.SheetNames.length > 0) {
+                        let excelData = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                        if (excelData.length > 0 && (excelData[0]['Product Group'] || excelData[0]['Product group']) && excelData[0]['Jan']) { targetData = excelData; safeSetStorage('scgTargetData', JSON.stringify(targetData)); alert("นำเข้าข้อมูล Target สำเร็จ " + targetData.length + " รายการ"); } 
+                        else { excelData = excelData.map(r => { let nr = {...r}; if(!nr['Project ID']) nr['Project ID'] = generateProjectID(); ['วันที่บันทึกข้อมูล', 'Last updated date', 'เดือนที่เริ่มใช้', 'เดือนที่ปิดการขาย'].forEach(f => { if(nr[f]) { let s = String(nr[f]); if(s.includes('T')) s = s.split('T')[0]; if(s.includes(' ')) s = s.split(' ')[0]; nr[f] = s; } }); return nr; }); if(excelData.length > 0) { projectData = [...projectData, ...excelData]; } alert("นำเข้าข้อมูล Project สำเร็จ"); }
+                    }
+                    if (workbook.SheetNames.includes('Target')) { let tData = XLSX.utils.sheet_to_json(workbook.Sheets['Target']); if (tData.length > 0) { targetData = cleanDataKeys(tData); safeSetStorage('scgTargetData', JSON.stringify(targetData)); alert("นำเข้าข้อมูล Target เสริมสำเร็จ"); } }
+                    await saveToLocalStorage(); updateDataLists(); renderTable(); updateFilterDropdowns(); populateTargetFilters(); updateCharts(); updateTargetTable();
+                } catch(err) { alert("เกิดข้อผิดพลาดในการอ่านไฟล์: " + err.message); }
+                event.target.value = ""; 
+            }; reader.readAsArrayBuffer(file);
+        }
+
+        function updateFilterDropdowns() {
+            let ids = ['filterYear','filterMonth','filterCG','filterSR','globalFilterSpec','globalFilterProduct','filterDealerRegion','filterProjectRegion'];
+            let els = ids.map(id => document.getElementById(id)).filter(e => e); let vals = els.map(e => Array.from(e.selectedOptions).map(o=>o.value));
+            let sets = Array(8).fill().map(()=>new Set());
+            projectData.forEach(r => {
+                if(r['ปี'] != null && String(r['ปี']).trim() !== '') sets[0].add(String(r['ปี']).trim());
+                if(r['เดือน'] != null && String(r['เดือน']).trim() !== '') sets[1].add(String(r['เดือน']).trim());
+                if(r['Customer Group'] != null && String(r['Customer Group']).trim() !== '') sets[2].add(String(r['Customer Group']).trim());
+                if(r['SR Resp.'] != null && String(r['SR Resp.']).trim() !== '') sets[3].add(String(r['SR Resp.']).trim());
+                if(r['Product Spec เดิม'] != null && String(r['Product Spec เดิม']).trim() !== '') sets[4].add(String(r['Product Spec เดิม']).trim());
+                if(r['Product'] != null && String(r['Product']).trim() !== '') sets[5].add(String(r['Product']).trim());
+                if(r['Dealer Region'] != null && String(r['Dealer Region']).trim() !== '') sets[6].add(String(r['Dealer Region']).trim());
+                if(r['Project Region'] != null && String(r['Project Region']).trim() !== '') sets[7].add(String(r['Project Region']).trim());
+            });
+            els.forEach((e, i) => { let arr = Array.from(sets[i]); if(i === 1) { arr.sort(sortMonthsChronologically); } else { arr.sort(); } e.innerHTML = arr.map(v => `<option value="${v}">${v}</option>`).join(''); Array.from(e.options).forEach(opt => { if(vals[i].includes(opt.value)) opt.selected = true; }); });
+        }
+        
+        function makeClickable(val, source, region, status, monthIdx, ssYear, overrideClass = '') { if (val <= 0) return '-'; let strVal = val.toLocaleString(undefined, {maximumFractionDigits:2}); let safeReg = region.replace(/'/g, "\\'"); let safeStat = status.replace(/'/g, "\\'"); let mArg = monthIdx === 'total' ? "'total'" : monthIdx; let defaultClass = overrideClass ? overrideClass : 'text-slate-700 hover:text-blue-600'; return `<a href="javascript:void(0)" onclick="openTableDrilldown('${source}', '${safeReg}', '${safeStat}', ${mArg}, '${ssYear}')" class="table-link ${defaultClass}">${strVal}</a>`; }
+
+        window.openTableDrilldown = function(source, region, status, monthIdx, ssYear) {
+            let getVals = (id) => Array.from(document.getElementById(id)?.selectedOptions || []).map(o=>o.value).filter(v=>v);
+            let [y, m, cg, sr, sp, pd, dr, pr] = ['filterYear','filterMonth','filterCG','filterSR','globalFilterSpec','globalFilterProduct','filterDealerRegion','filterProjectRegion'].map(getVals);
+            let d = projectData.filter(r => (y.length===0 || y.includes(String(r['ปี']||''))) && (m.length===0 || m.includes(String(r['เดือน']||''))) && (cg.length===0 || cg.includes(String(r['Customer Group']||''))) && (sr.length===0 || sr.includes(String(r['SR Resp.']||''))) && (sp.length===0 || sp.includes(String(r['Product Spec เดิม']||''))) && (pd.length===0 || pd.includes(String(r['Product']||''))) && (dr.length===0 || dr.includes(String(r['Dealer Region']||''))) && (pr.length===0 || pr.includes(String(r['Project Region']||''))) );
+
+            if (source.includes('redbrick')) { d = d.filter(r => String(r['Product Spec เดิม']||'').includes('อิฐมอญ')); } else if (source.includes('alc')) { d = d.filter(r => { let p = String(r['Product']||'').toLowerCase(); return p.includes('other size') || p.includes('alc other'); }); } else if (source.includes('precast')) { d = d.filter(r => String(r['Product Spec เดิม']||'').toLowerCase().includes('precast')); } else if (source === 'breakdown_all') { let specF = document.getElementById('backlogFilterSpec').value; if(specF !== 'ALL') d = d.filter(r => String(r['Product Spec เดิม']||'').includes(specF) || String(r['Product']||'').includes(specF)); }
+            if (region !== 'ALL') { d = d.filter(r => (r['Project Region'] || 'Unspecified').trim() === region); }
+
+            if (source.startsWith('breakdown_') || status === 'Backlog') {
+                d = d.filter(r => (r['Sales Status'] || '').trim().toLowerCase() === 'win');
+                if (ssYear !== 'ALL' && ssYear !== 'all') { d = d.filter(r => getYearFromLastUpdate(r) === String(ssYear)); }
+                if (monthIdx !== 'total') {
+                    if (source.startsWith('breakdown_')) { let fieldName = fieldsG5[monthIdx]; d = d.filter(r => parseCleanNumber(r[fieldName]) > 0); } 
+                    else { let activeYears = (ssYear === 'ALL' || ssYear === 'all') ? ['2025','2026','2027','2028'] : [ssYear]; let mStr = engMonthsAbbr[monthIdx].toLowerCase(); d = d.filter(r => { let hasVal = false; fieldsG5.forEach((f, i) => { let yStr = ['2025','2026','2027','2028'][Math.floor(i/12)]; if (activeYears.includes(yStr) && f.toLowerCase().startsWith(mStr) && parseCleanNumber(r[f]) > 0) hasVal = true; }); return hasVal; }); }
+                } else { let activeYears = (ssYear === 'ALL' || ssYear === 'all') ? ['2025','2026','2027','2028'] : [ssYear]; d = d.filter(r => { let hasVal = false; fieldsG5.forEach((f, i) => { let yStr = ['2025','2026','2027','2028'][Math.floor(i/12)]; if(activeYears.includes(yStr) && parseCleanNumber(r[f]) > 0) hasVal = true; }); return hasVal; }); }
+            } else {
+                if (ssYear !== 'all' && ssYear !== 'ALL') { d = d.filter(r => getYearFromLastUpdate(r) === String(ssYear)); }
+                if (status !== 'ALL') { d = d.filter(r => { let st = (r['Sales Status'] || 'Unspecified').trim(); if(!st) st = 'Unspecified'; let stLower = st.toLowerCase(); if(stLower === 'win') st = 'Win'; else if(stLower === 'loss') st = 'Loss'; else if(stLower === 'follow') st = 'Follow'; else if(stLower === 'high potential') st = 'High Potential'; return st === status; }); }
+                if (monthIdx !== 'total') { d = d.filter(r => { let actualIdx = getMonthIndexFromLastUpdate(r); return (actualIdx >= 0 && actualIdx <= 11) ? (actualIdx === monthIdx) : false; }); }
+            }
+
+            let colsToShow = ['วันที่บันทึกข้อมูล', 'ชื่อโครงการ', 'จังหวัด', 'Project Region', 'SR Resp.', 'ผู้รับเหมา', 'ร้านผู้แทนจำหน่าย', 'Product Spec เดิม', 'Product', 'ชั้นคุณภาพ', 'ขนาด', 'Sales Status', 'Last updated date'];
+            let targetForecastField = null;
+            if ((source.startsWith('breakdown_') || status === 'Backlog') && monthIdx !== 'total') {
+                if (source.startsWith('breakdown_')) { targetForecastField = fieldsG5[monthIdx]; } else { let mStr = engMonthsAbbr[monthIdx]; let yStr = (ssYear !== 'ALL' && ssYear !== 'all') ? ssYear : '2025'; targetForecastField = mStr + yStr; }
+            }
+            if (targetForecastField) { colsToShow.push(targetForecastField); colsToShow.push('Opp.รวม'); } else { colsToShow.push('Opp.รวม'); }
+
+            document.getElementById('drilldownTitle').innerHTML = `<i class="fas fa-list mr-2 text-blue-600"></i>Data Details <span class="text-sm font-normal text-slate-500 ml-2">(${d.length} records)</span>`; document.getElementById('drilldownHead').innerHTML = `<tr>${colsToShow.map(c => `<th>${c}</th>`).join('')}</tr>`;
+            let html = d.map(r => { return `<tr class="hover:bg-blue-50 transition">` + colsToShow.map(c => { let v = r[c] || '-'; if(c === 'Opp.รวม' || c === targetForecastField) { let num = parseCleanNumber(v); v = num > 0 ? num.toLocaleString(undefined, {maximumFractionDigits:2}) : '-'; return `<td class="font-bold text-right text-blue-700">${v}</td>`; } if(['วันที่บันทึกข้อมูล', 'Last updated date'].includes(c)) { v = formatDisplayDate(v, 'DD/MM/YYYY'); } return `<td>${v}</td>`; }).join('') + `</tr>`; }).join('');
+            if(d.length === 0) html = `<tr><td colspan="${colsToShow.length}" class="text-center py-6 text-slate-400">No data available</td></tr>`; document.getElementById('drilldownBody').innerHTML = html; document.getElementById('drilldownModal').classList.remove('hidden');
+        };
+
+        function showDrilldown(clickedStatus, targetField, dataArray) {
+            let filtered = dataArray.filter(r => { let rStatus = r['Sales Status'] || 'Unspecified'; let statusMatch = (clickedStatus === 'Unspecified') ? (!r['Sales Status']) : (getColorForLabel(rStatus) === getColorForLabel(clickedStatus) ? true : rStatus === clickedStatus); let val = parseCleanNumber(r[targetField]); return statusMatch && val > 0; });
+            document.getElementById('drilldownTitle').innerHTML = `<i class="fas fa-search-plus mr-2 text-blue-600"></i>Data Detail: ${targetField.split('/')[0]} (${clickedStatus}) <span class="text-sm font-normal text-slate-500 ml-2">(${filtered.length} records)</span>`;
+            let colsToShow = ['วันที่บันทึกข้อมูล', 'ชื่อโครงการ', 'จังหวัด', 'Project Region', 'SR Resp.', 'ผู้รับเหมา', 'ร้านผู้แทนจำหน่าย', 'Product Spec เดิม', 'Product', 'ชั้นคุณภาพ', 'ขนาด', 'Sales Status', 'Opp.รวม', 'Last updated date']; if (targetField !== 'Opp.รวม') colsToShow.push(targetField);
+            document.getElementById('drilldownHead').innerHTML = `<tr>${colsToShow.map(c => `<th>${c}</th>`).join('')}</tr>`;
+            let html = filtered.map(r => { return `<tr class="hover:bg-blue-50 transition">` + colsToShow.map(c => { let v = r[c] || '-'; if(c === 'Opp.รวม' || c === targetField) { let num = parseCleanNumber(v); v = num > 0 ? num.toLocaleString(undefined, {maximumFractionDigits:2}) : '-'; return `<td class="font-bold text-right text-blue-700">${v}</td>`; } if(['วันที่บันทึกข้อมูล', 'Last updated date'].includes(c)) { v = formatDisplayDate(v, 'DD/MM/YYYY'); } return `<td>${v}</td>`; }).join('') + `</tr>`; }).join('');
+            if(filtered.length === 0) html = `<tr><td colspan="${colsToShow.length}" class="text-center py-6 text-slate-400">No data available</td></tr>`; document.getElementById('drilldownBody').innerHTML = html; document.getElementById('drilldownModal').classList.remove('hidden');
+        }
+
+        function getPieChartOptions(targetFieldForClick = null) {
+            let opts = { responsive: true, maintainAspectRatio: false, layout: { padding: 15 }, plugins: { datalabels: datalabelsConfig, legend: { position: 'right', labels: { boxWidth: 10, padding: 10, font: { family: 'Sarabun', size: 11, weight: '500' } } } }, cutout: '65%' };
+            if (targetFieldForClick) { opts.onClick = (event, elements, chart) => { if (elements.length > 0) { const idx = elements[0].index; const clickedStatus = chart.data.labels[idx].split(':')[0].trim(); if (clickedStatus !== 'Unspecified') { showDrilldown(clickedStatus, targetFieldForClick, projectData); } } }; opts.onHover = (event, elements) => { event.native.target.style.cursor = elements[0] ? 'pointer' : 'default'; }; }
+            return opts;
+        }
+
+        function updateGraphSummaryPanel(chartType, clickedLabel, monthLabel, monthIndex, datasets, clickedColor) {
+            let panel = document.getElementById('panel_' + chartType); if(!panel) return;
+            let statusBreakdownHtml = '', monthTotal = 0;
+            datasets.forEach(ds => { let val = ds.data[monthIndex] || 0, label = ds.label, color = ds.borderColor || '#ccc'; let row = `<div class="flex justify-between items-center text-xs mb-1 p-1.5 rounded transition ${label === clickedLabel ? 'bg-blue-50 border border-blue-100 font-bold' : ''}"><span class="flex items-center"><span class="w-2.5 h-2.5 rounded-sm mr-2" style="background-color: ${color}"></span>${label}</span><span class="text-slate-800">${val > 0 ? val.toLocaleString(undefined, {maximumFractionDigits:2}) : '-'}</span></div>`; statusBreakdownHtml += row; monthTotal += val; });
+            let targetDs = datasets.find(d => d.label === clickedLabel), targetLabel = clickedLabel, targetColor = clickedColor;
+            if (chartType.includes('Combined')) { if (clickedLabel.toLowerCase().includes('target')) { targetLabel = clickedLabel; targetColor = clickedColor; } else { let backlogDs = datasets.find(d => d.label.toLowerCase().includes('backlog')); if (backlogDs) { targetDs = backlogDs; targetLabel = 'Backlog Total'; targetColor = '#0f766e'; } } }
+            let cumToEnd = 0, totalYear = 0; if(targetDs) { for(let i = monthIndex; i < 12; i++) { cumToEnd += (targetDs.data[i] || 0); } for(let i = 0; i < 12; i++) { totalYear += (targetDs.data[i] || 0); } }
+            panel.innerHTML = `<div class="w-full text-left animate-[fadeIn_0.3s_ease-in-out]"><div class="border-b border-slate-200 pb-2 mb-3"><h5 class="font-bold text-slate-800 text-sm"><i class="fas fa-calendar-day text-blue-600 mr-2"></i>Month: ${monthLabel}</h5></div><div class="mb-3"><p class="text-[9px] font-bold text-slate-400 uppercase mb-1">Status Breakdown</p>${statusBreakdownHtml}${statusBreakdownHtml ? `<div class="flex justify-between items-center text-xs mt-1 pt-1 border-t border-slate-200 font-bold"><span class="text-slate-600">Total (Sq.m.)</span><span class="text-blue-700">${monthTotal > 0 ? monthTotal.toLocaleString(undefined, {maximumFractionDigits:2}) : '-'}</span></div>` : ''}</div><div class="bg-blue-50 p-2.5 rounded border border-blue-100 border-l-2" style="border-left-color:${targetColor}"><p class="text-[9px] font-bold text-slate-500 mb-1">Cumulative: <span style="color:${targetColor}">${targetLabel}</span></p><div class="flex justify-between text-[10px]"><span class="text-slate-500">${monthLabel} to Dec:</span><span class="font-bold text-slate-800">${cumToEnd > 0 ? cumToEnd.toLocaleString(undefined, {maximumFractionDigits:2}) : '-'}</span></div><div class="flex justify-between text-[10px]"><span class="text-slate-500">Full Year:</span><span class="font-bold text-slate-800">${totalYear > 0 ? totalYear.toLocaleString(undefined, {maximumFractionDigits:2}) : '-'}</span></div></div></div>`;
+        }
+
+        function drawLineChart(canvasId, labels, datasets, chartType = null) {
+            let el = document.getElementById(canvasId); if(!el) return; if(chartInstances[canvasId]) chartInstances[canvasId].destroy();
+            const customBg = { id: 'customBg', beforeDraw: (c, a, o) => { const ctx = c.ctx; ctx.save(); ctx.globalCompositeOperation = 'destination-over'; ctx.fillStyle = o.color || '#ffffff'; ctx.fillRect(0, 0, c.width, c.height); ctx.restore(); } };
+            let options = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, font: { family: 'Sarabun', size: 11 } } }, datalabels: { display: false }, customBg: { color: 'transparent' } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true, border: {dash: [4, 4]}, grid: { color: '#e2e8f0' }, ticks: { callback: function(v){ return v.toLocaleString(); }, font: {size: 10} } } }, interaction: { mode: 'index', intersect: false } };
+            if(chartType) { options.onClick = (e, elements, chart) => { if (elements.length > 0) { const dIdx = elements[0].datasetIndex, iIdx = elements[0].index, ds = chart.data.datasets[dIdx], mLabel = chart.data.labels[iIdx]; updateGraphSummaryPanel(chartType, ds.label, mLabel, iIdx, chart.data.datasets, ds.borderColor); } }; options.onHover = (e, elements) => { e.native.target.style.cursor = elements[0] ? 'pointer' : 'default'; }; }
+            chartInstances[canvasId] = new Chart(el, { type: 'line', data: { labels: labels, datasets: datasets }, options: options, plugins: [customBg] });
+        }
+
+        function getTargetForRegion(dataAllTargets, reg, category, targetYear = 'ALL') {
+            let target = Array(12).fill(0);
+            let filtered = dataAllTargets.filter(r => {
+                let yVal = String(getSafeVal(r, ['Year', 'year', 'ปี'])).trim(); if (targetYear !== 'ALL' && targetYear !== 'all' && yVal !== targetYear) return false;
+                let rVal = String(getSafeVal(r, ['Region', 'region', 'ภาค', 'Project Region'])).trim(); if (reg !== 'ALL' && rVal !== reg) return false;
+                let pVal = String(getSafeVal(r, ['Product Group', 'Product group', 'กลุ่มสินค้า', 'Product', 'Product Spec'])).toLowerCase();
+                if (category === 'redbrick' && !(pVal.includes('red brick') || pVal.includes('อิฐมอญ'))) return false;
+                if (category === 'alc' && !(pVal.includes('alc') || pVal.includes('other') || pVal.includes('มวลเบา'))) return false;
+                if (category === 'precast' && !(pVal.includes('precast') || pVal.includes('พรีคาสท์'))) return false;
+                return true;
+            });
+            let monthKeys = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            filtered.forEach(r => { monthKeys.forEach((m, i) => { target[i] += parseCleanNumber(getSafeVal(r, [m, m.toLowerCase(), m.toUpperCase()])); }); });
+            return target;
+        }
+
+        function renderBacklogTableTemplate(filteredData, displayYear, prefix, themeColor) {
+            let tbody = document.getElementById(`${prefix}RegionTableBody`), theadRowMonths = document.getElementById(`${prefix}RegionTableHeadMonths`), theadRowYears = document.getElementById(`${prefix}RegionTableHeadYears`); if(!tbody || !theadRowMonths || !theadRowYears) return;
+            let yearCols = { '2025': { start: 0, end: 11, label: 'Year 2025', bgClass: 'bg-slate-100/70' }, '2026': { start: 12, end: 23, label: 'Year 2026', bgClass: 'bg-slate-50' }, '2027': { start: 24, end: 35, label: 'Year 2027', bgClass: 'bg-slate-100/70' }, '2028': { start: 36, end: 47, label: 'Year 2028', bgClass: 'bg-slate-50' } };
+            let activeYears = displayYear === 'ALL' ? ['2025', '2026', '2027', '2028'] : [displayYear]; let tStyle = themeStyles[themeColor] || themeStyles['emerald'];
+            let sourceMap = { 'backlog': 'breakdown_all', 'backlogRedBrick': 'breakdown_redbrick', 'backlogAlcOther': 'breakdown_alc', 'backlogPrecast': 'breakdown_precast' }; let source = sourceMap[prefix];
+            let yearHeaderHtml = `<th rowspan="2" class="text-left sticky left-0 bg-slate-50 shadow-[inset_-1px_0_0_#e2e8f0] z-30 min-w-[150px] border-r border-slate-200 align-middle">Project Region</th>`;
+            activeYears.forEach(y => { yearHeaderHtml += `<th colspan="12" class="text-center border-b border-r border-slate-200 ${yearCols[y].bgClass} text-slate-800 font-bold">${yearCols[y].label}</th>`; });
+            yearHeaderHtml += `<th rowspan="2" class="${tStyle.thAbsTotal} z-20 font-extrabold min-w-[120px] border-l align-middle">Absolute Total</th>`; theadRowYears.innerHTML = yearHeaderHtml;
+            let monthsHtml = ''; activeYears.forEach(y => { let bgClass = yearCols[y].bgClass; engMonthsAbbr.forEach(m => { monthsHtml += `<th class="px-2 py-2 text-center text-[10px] text-slate-500 border-r border-b border-slate-200 ${bgClass}">${m}</th>`; }); }); theadRowMonths.innerHTML = monthsHtml;
+            let dWin = filteredData.filter(r => (r['Sales Status'] || '').trim().toLowerCase() === 'win'); 
+            if (displayYear !== 'ALL') { dWin = dWin.filter(r => getYearFromLastUpdate(r) === String(displayYear)); }
+            let regions = [...new Set(dWin.map(r => (r['Project Region'] || 'Unspecified').trim()))].sort();
+            if(regions.length === 0) { let totalCols = 2 + (activeYears.length * 12); tbody.innerHTML = `<tr><td colspan="${totalCols}" class="text-center py-8 text-slate-400">ไม่มีรายการ Backlog (สถานะ Win) ในช่วงปีที่เลือกอัปเดต</td></tr>`; return; }
+            let html = '', grandTotals = Array(48).fill(0), absoluteTotal = 0;
+            regions.forEach(reg => {
+                let regData = dWin.filter(r => (r['Project Region'] || 'Unspecified').trim() === reg), regTotals = Array(48).fill(0), regAbsolute = 0;
+                regData.forEach(r => { fieldsG5.forEach((f, i) => { let val = parseCleanNumber(r[f]); regTotals[i] += val; grandTotals[i] += val; let yBlock = Math.floor(i/12); if(activeYears.includes(['2025','2026','2027','2028'][yBlock])) regAbsolute += val; }); });
+                html += `<tr class="${tStyle.hoverRow} transition-colors"><td class="text-left font-bold text-slate-700 sticky left-0 bg-white border-r border-slate-200 z-10 shadow-[inset_-1px_0_0_#e2e8f0] py-2.5">${reg}</td>`;
+                activeYears.forEach(y => { let yInfo = yearCols[y]; for(let i = yInfo.start; i <= yInfo.end; i++) { let val = regTotals[i]; let bgClass = yInfo.bgClass.replace('bg-slate-100/70', tStyle.bgBlock1).replace('bg-slate-50', 'bg-white'); html += `<td class="${bgClass} text-xs border-r border-slate-100 text-center py-2.5">${makeClickable(val, source, reg, 'Win', i, displayYear, 'text-slate-700')}</td>`; } });
+                html += `<td class="font-bold text-center py-2.5 border-l ${tStyle.absTotalCell}">${makeClickable(regAbsolute, source, reg, 'Win', 'total', displayYear, tStyle.absTotalCell.split(' ')[0])}</td></tr>`;
+            });
+            html += `<tr class="${tStyle.footerRow} border-t-2"><td class="text-left font-extrabold sticky left-0 z-10 uppercase tracking-wider text-[11px] py-3 border-r ${tStyle.footerHeader}">Total All Regions</td>`;
+            activeYears.forEach(y => { let yInfo = yearCols[y]; for(let i = yInfo.start; i <= yInfo.end; i++) { let val = grandTotals[i]; absoluteTotal += val; let bgClass = yInfo.bgClass.replace('bg-slate-100/70', tStyle.bgBlock1).replace('bg-slate-50', tStyle.bgBlock2); html += `<td class="font-bold text-xs border-r text-center py-3 ${bgClass}">${makeClickable(val, source, 'ALL', 'Win', i, displayYear, tStyle.textFooter.split(' ')[0])}</td>`; } });
+            html += `<td class="font-extrabold text-sm text-center py-3 border-l ${tStyle.footerTotalCell}">${makeClickable(absoluteTotal, source, 'ALL', 'Win', 'total', displayYear, tStyle.footerTotalCell.split(' ')[0])}</td></tr>`; tbody.innerHTML = html;
+        }
+
+        function updateBacklogTable() { let specFilter = document.getElementById('backlogFilterSpec').value, yearFilter = document.getElementById('backlogFilterYear').value; let getVals = (id) => Array.from(document.getElementById(id)?.selectedOptions || []).map(o=>o.value).filter(v=>v); let [y, m, cg, sr, sp, pd, dr, pr] = ['filterYear','filterMonth','filterCG','filterSR','globalFilterSpec','globalFilterProduct','filterDealerRegion','filterProjectRegion'].map(getVals); let d = projectData.filter(r => (y.length===0 || y.includes(String(r['ปี']||''))) && (m.length===0 || m.includes(String(r['เดือน']||''))) && (cg.length===0 || cg.includes(String(r['Customer Group']||''))) && (sr.length===0 || sr.includes(String(r['SR Resp.']||''))) && (sp.length===0 || sp.includes(String(r['Product Spec เดิม']||''))) && (pd.length===0 || pd.includes(String(r['Product']||''))) && (dr.length===0 || dr.includes(String(r['Dealer Region']||''))) && (pr.length===0 || pr.includes(String(r['Project Region']||''))) ); if(specFilter !== 'ALL') { d = d.filter(r => String(r['Product Spec เดิม']||'').includes(specFilter) || String(r['Product']||'').includes(specFilter)); } renderBacklogTableTemplate(d, yearFilter, 'backlog', 'emerald'); }
+        function updateBacklogRedBrickTable() { let yearFilter = document.getElementById('backlogRedBrickFilterYear').value; let getVals = (id) => Array.from(document.getElementById(id)?.selectedOptions || []).map(o=>o.value).filter(v=>v); let [y, m, cg, sr, sp, pd, dr, pr] = ['filterYear','filterMonth','filterCG','filterSR','globalFilterSpec','globalFilterProduct','filterDealerRegion','filterProjectRegion'].map(getVals); let d = projectData.filter(r => (y.length===0 || y.includes(String(r['ปี']||''))) && (m.length===0 || m.includes(String(r['เดือน']||''))) && (cg.length===0 || cg.includes(String(r['Customer Group']||''))) && (sr.length===0 || sr.includes(String(r['SR Resp.']||''))) && (sp.length===0 || sp.includes(String(r['Product Spec เดิม']||''))) && (pd.length===0 || pd.includes(String(r['Product']||''))) && (dr.length===0 || dr.includes(String(r['Dealer Region']||''))) && (pr.length===0 || pr.includes(String(r['Project Region']||''))) ); d = d.filter(r => String(r['Product Spec เดิม']||'').includes('อิฐมอญ')); renderBacklogTableTemplate(d, yearFilter, 'backlogRedBrick', 'orange'); }
+        function updateBacklogAlcOtherTable() { let yearFilter = document.getElementById('backlogAlcOtherFilterYear').value; let getVals = (id) => Array.from(document.getElementById(id)?.selectedOptions || []).map(o=>o.value).filter(v=>v); let [y, m, cg, sr, sp, pd, dr, pr] = ['filterYear','filterMonth','filterCG','filterSR','globalFilterSpec','globalFilterProduct','filterDealerRegion','filterProjectRegion'].map(getVals); let d = projectData.filter(r => (y.length===0 || y.includes(String(r['ปี']||''))) && (m.length===0 || m.includes(String(r['เดือน']||''))) && (cg.length===0 || cg.includes(String(r['Customer Group']||''))) && (sr.length===0 || sr.includes(String(r['SR Resp.']||''))) && (sp.length===0 || sp.includes(String(r['Product Spec เดิม']||''))) && (pd.length===0 || pd.includes(String(r['Product']||''))) && (dr.length===0 || dr.includes(String(r['Dealer Region']||''))) && (pr.length===0 || pr.includes(String(r['Project Region']||''))) ); d = d.filter(r => { let prod = String(r['Product']||'').toLowerCase(); return prod.includes('other size') || prod.includes('alc other'); }); renderBacklogTableTemplate(d, yearFilter, 'backlogAlcOther', 'purple'); }
+        function updateBacklogPrecastTable() { let yearFilter = document.getElementById('backlogPrecastFilterYear').value; let getVals = (id) => Array.from(document.getElementById(id)?.selectedOptions || []).map(o=>o.value).filter(v=>v); let [y, m, cg, sr, sp, pd, dr, pr] = ['filterYear','filterMonth','filterCG','filterSR','globalFilterSpec','globalFilterProduct','filterDealerRegion','filterProjectRegion'].map(getVals); let d = projectData.filter(r => (y.length===0 || y.includes(String(r['ปี']||''))) && (m.length===0 || m.includes(String(r['เดือน']||''))) && (cg.length===0 || cg.includes(String(r['Customer Group']||''))) && (sr.length===0 || sr.includes(String(r['SR Resp.']||''))) && (sp.length===0 || sp.includes(String(r['Product Spec เดิม']||''))) && (pd.length===0 || pd.includes(String(r['Product']||''))) && (dr.length===0 || dr.includes(String(r['Dealer Region']||''))) && (pr.length===0 || pr.includes(String(r['Project Region']||''))) ); d = d.filter(r => String(r['Product Spec เดิม']||'').toLowerCase().includes('precast')); renderBacklogTableTemplate(d, yearFilter, 'backlogPrecast', 'indigo'); }
+
+        function getBacklogForRegion(dataAllYears, reg, fcYear = 'ALL') {
+            let backlog = Array(12).fill(0); let dWin = dataAllYears.filter(r => { let rReg = (r['Project Region'] || 'Unspecified').trim(), st = (r['Sales Status'] || '').trim().toLowerCase(), matchReg = reg === 'ALL' ? true : (rReg === reg), matchYear = fcYear === 'ALL' ? true : (getYearFromLastUpdate(r) === String(fcYear)); return matchReg && (st === 'win') && matchYear; });
+            fieldsG5.forEach(f => { if (fcYear !== 'ALL' && fcYear !== 'all' && !f.includes(fcYear)) return; let mStr = f.substring(0, 3); let mIdx = engMonthsAbbr.findIndex(m => m.toLowerCase() === mStr.toLowerCase()); if (mIdx !== -1) { backlog[mIdx] += dWin.reduce((acc, r) => acc + parseCleanNumber(r[f]), 0); } });
+            return backlog;
+        }
+
+        function buildRegionStatusTable(dataAllYears, rawDataAllYears, tbodyId, ssYear, chartType, includeBacklog = false, backlogYear = 'ALL', targetCategory = null) {
+            let dTable = ssYear !== 'all' ? dataAllYears.filter(r => getYearFromLastUpdate(r) === ssYear) : dataAllYears; let statusMap = {}; 
+            dTable.forEach(r => {
+                let reg = (r['Project Region'] || 'Unspecified').trim(), st = (r['Sales Status'] || 'Unspecified').trim(); if(!reg) reg = 'Unspecified'; if(!st) st = 'Unspecified';
+                let stLower = st.toLowerCase(); if(stLower === 'win') st = 'Win'; else if(stLower === 'loss') st = 'Loss'; else if(stLower === 'follow') st = 'Follow'; else if(stLower === 'high potential') st = 'High Potential';
+                if(!statusMap[reg]) statusMap[reg] = {}; if(!statusMap[reg][st]) statusMap[reg][st] = Array(13).fill(0); 
+                let mIdx = getMonthIndexFromLastUpdate(r), opp = getOppTotal(r); if (mIdx !== 999 && mIdx >= 0 && mIdx <= 11) { statusMap[reg][st][mIdx] += opp; } else if (opp > 0) { statusMap[reg][st][12] += opp; }
+            });
+            let tbody = document.getElementById(tbodyId); if(!tbody) return;
+            let regions = Object.keys(statusMap).sort(), sel = document.getElementById('sel_' + chartType); let currentSel = sel ? sel.value : 'ALL';
+            if (sel) { sel.innerHTML = '<option value="ALL">ALL REGIONS</option>' + regions.map(reg => `<option value="${reg}">${reg}</option>`).join(''); if (regions.includes(currentSel) || currentSel === 'ALL') { sel.value = currentSel; } else { sel.value = 'ALL'; currentSel = 'ALL'; } }
+            let displayRegions = (currentSel === 'ALL') ? regions : [currentSel], html = '', grandTotal = Array(12).fill(0), allTotal = 0;
+            regionalDataStore[chartType] = { regions: regions, statusMap: {}, grandStatusMap: {}, backlogMap: {}, grandBacklog: Array(12).fill(0), targetMap: {}, grandTarget: Array(12).fill(0) };
+            let sourceMap = { 'allRegion': 'region_all', 'redBrick': 'region_redbrick', 'alcOther': 'region_alc', 'precast': 'region_precast', 'redBrickCombined': 'region_redbrick_comb', 'alcOtherCombined': 'region_alc_comb', 'precastCombined': 'region_precast_comb' }; let source = sourceMap[chartType];
+
+            regions.forEach(reg => {
+                let statuses = Object.keys(statusMap[reg]).sort(); regionalDataStore[chartType].statusMap[reg] = statusMap[reg];
+                statuses.forEach(st => { let rowData = statusMap[reg][st]; if(!regionalDataStore[chartType].grandStatusMap[st]) regionalDataStore[chartType].grandStatusMap[st] = Array(12).fill(0); rowData.slice(0, 12).forEach((v, i) => { regionalDataStore[chartType].grandStatusMap[st][i] += v; }); });
+                if (includeBacklog) { let regBacklog = getBacklogForRegion(rawDataAllYears, reg, backlogYear); regionalDataStore[chartType].backlogMap[reg] = regBacklog; regBacklog.forEach((v,i) => { regionalDataStore[chartType].grandBacklog[i] += v; }); }
+                if (targetCategory) { let regTarget = getTargetForRegion(targetData, reg, targetCategory, backlogYear); regionalDataStore[chartType].targetMap[reg] = regTarget; regTarget.forEach((v,i) => { regionalDataStore[chartType].grandTarget[i] += v; }); }
+            });
+
+            if (displayRegions.length === 0) { html = `<tr><td colspan="15" class="text-center py-6 text-slate-400">No data found based on filters</td></tr>`; } 
+            else {
+                displayRegions.forEach(reg => {
+                    let statuses = Object.keys(statusMap[reg]).sort(), regTotal = Array(12).fill(0), regAllTotal = 0;
+                    statuses.forEach((st, idx) => { let rowData = statusMap[reg][st], rowTotal = rowData.reduce((a,b)=>a+b, 0); regAllTotal += rowTotal; html += `<tr class="hover:bg-slate-50 transition-colors">`; if (idx === 0) { html += `<td rowspan="${statuses.length}" class="text-left font-bold text-slate-800 bg-white border-r border-slate-200 align-top sticky left-0 z-10 shadow-[inset_-1px_0_0_#e2e8f0]">${reg}</td>`; } html += `<td class="text-left font-medium text-slate-600 border-r border-slate-100 bg-white sticky left-[128px] z-10 shadow-[inset_-1px_0_0_#f1f5f9]"><span class="flex items-center"><span class="w-2 h-2 rounded-full mr-2" style="background-color: ${getColorForLabel(st)}"></span>${st}</span></td>`; rowData.slice(0, 12).forEach((v, i) => { regTotal[i] += v; grandTotal[i] += v; html += `<td>${makeClickable(v, source, reg, st, i, ssYear)}</td>`; }); html += `<td class="font-bold bg-slate-50 border-l border-slate-100">${makeClickable(rowTotal, source, reg, st, 'total', ssYear, 'text-slate-700')}</td></tr>`; });
+                    allTotal += regAllTotal;
+                    html += `<tr class="bg-slate-50"><td class="text-right font-bold text-slate-700 border-r border-slate-200 text-[10px] sticky left-0 z-10 bg-slate-50 shadow-[inset_-1px_0_0_#e2e8f0]">Total ${reg}</td><td class="border-r border-slate-100 bg-slate-50 sticky left-[128px] z-10"></td>${regTotal.map((v, i) => `<td class="font-bold text-xs">${makeClickable(v, source, reg, 'ALL', i, ssYear, 'text-slate-700')}</td>`).join('')}<td class="font-bold bg-blue-50 border-l border-blue-100 text-xs">${makeClickable(regAllTotal, source, reg, 'ALL', 'total', ssYear, 'text-blue-800')}</td></tr>`;
+                    if (includeBacklog) { let regBacklog = regionalDataStore[chartType].backlogMap[reg]; let totalRegBacklog = regBacklog.reduce((a,b)=>a+b, 0); let bSource = source.replace('_comb', '').replace('region_', 'backlog_'); html += `<tr class="bg-emerald-50/50 border-b border-slate-200"><td class="text-right font-bold text-emerald-800 border-r border-slate-200 text-[10px] sticky left-0 z-10 bg-emerald-50/90 shadow-[inset_-1px_0_0_#e2e8f0]"><i class="fas fa-layer-group mr-1"></i> Backlog Total</td><td class="border-r border-slate-200 bg-emerald-50/90 sticky left-[128px] z-10"></td>${regBacklog.map((v, i) => `<td class="font-bold text-emerald-700 text-xs">${makeClickable(v, bSource, reg, 'Backlog', i, backlogYear, 'text-emerald-700')}</td>`).join('')}<td class="font-bold text-emerald-900 bg-emerald-100 border-l border-emerald-200 text-xs">${makeClickable(totalRegBacklog, bSource, reg, 'Backlog', 'total', backlogYear, 'text-emerald-900')}</td></tr>`; }
+                    if (targetCategory) { let regTarget = regionalDataStore[chartType].targetMap[reg]; let totalRegTarget = regTarget.reduce((a,b)=>a+b, 0); html += `<tr class="bg-blue-50/40 border-b-2 border-slate-200"><td class="text-right font-bold text-blue-800 border-r border-slate-200 text-[10px] sticky left-0 z-10 bg-blue-50/90 shadow-[inset_-1px_0_0_#e2e8f0]"><i class="fas fa-bullseye mr-1"></i> Target</td><td class="border-r border-slate-200 bg-blue-50/90 sticky left-[128px] z-10"></td>${regTarget.map(v => `<td class="font-bold text-blue-700 text-xs">${v > 0 ? v.toLocaleString(undefined, {maximumFractionDigits:2}) : '-'}</td>`).join('')}<td class="font-bold text-blue-900 bg-blue-100 border-l border-blue-200 text-xs">${totalRegTarget > 0 ? totalRegTarget.toLocaleString(undefined, {maximumFractionDigits:2}) : '-'}</td></tr>`; }
+                });
+                
+                if (currentSel === 'ALL') {
+                    html += `<tr class="bg-slate-100"><td colspan="2" class="text-center font-bold text-slate-800 border-r border-slate-200 sticky left-0 z-20 bg-slate-100 shadow-[inset_-1px_0_0_#e2e8f0] text-sm uppercase tracking-wide py-3">Grand Total</td>${grandTotal.map((v, i) => `<td class="font-bold">${makeClickable(v, source, 'ALL', 'ALL', i, ssYear, 'text-slate-800')}</td>`).join('')}<td class="font-bold bg-blue-100 border-l border-blue-200">${makeClickable(allTotal, source, 'ALL', 'ALL', 'total', ssYear, 'text-blue-800')}</td></tr>`;
+                    if (includeBacklog) { let totalGrandBacklog = regionalDataStore[chartType].grandBacklog.reduce((a,b)=>a+b, 0); let bSource = source.replace('_comb', '').replace('region_', 'backlog_'); let bBtmClass = targetCategory ? 'border-b border-slate-300' : ''; html += `<tr class="bg-slate-200 ${bBtmClass}"><td colspan="2" class="text-center font-bold text-slate-900 border-r border-slate-300 sticky left-0 z-20 bg-slate-200 shadow-[inset_-1px_0_0_#cbd5e1] text-xs py-3"><i class="fas fa-layer-group mr-1"></i> Absolute Backlog Total</td>${regionalDataStore[chartType].grandBacklog.map((v, i) => `<td class="font-bold text-slate-900 text-xs">${makeClickable(v, bSource, 'ALL', 'Backlog', i, backlogYear, 'text-slate-900')}</td>`).join('')}<td class="font-bold text-slate-900 bg-slate-300 border-l border-slate-400 text-sm">${makeClickable(totalGrandBacklog, bSource, 'ALL', 'Backlog', 'total', backlogYear, 'text-slate-900')}</td></tr>`; }
+                    if (targetCategory) { let totalGrandTarget = regionalDataStore[chartType].grandTarget.reduce((a,b)=>a+b, 0); html += `<tr class="bg-blue-100/50 border-t border-slate-300"><td colspan="2" class="text-center font-bold text-blue-900 border-r border-blue-200 sticky left-0 z-20 bg-blue-100/80 shadow-[inset_-1px_0_0_#bfdbfe] text-xs py-3"><i class="fas fa-bullseye mr-1"></i> Absolute Target</td>${regionalDataStore[chartType].grandTarget.map(v => `<td class="font-bold text-blue-900 text-xs">${v > 0 ? v.toLocaleString(undefined, {maximumFractionDigits:2}) : '-'}</td>`).join('')}<td class="font-bold text-blue-900 bg-blue-200 border-l border-blue-300 text-sm">${totalGrandTarget > 0 ? totalGrandTarget.toLocaleString(undefined, {maximumFractionDigits:2}) : '-'}</td></tr>`; }
+                }
+            }
+            tbody.innerHTML = html; drawRegionalLineChart(chartType);
+        }
+        
+        function drawRegionalLineChart(chartType) {
+            let sel = document.getElementById('sel_' + chartType); if(!sel) return; let val = sel.value; let store = regionalDataStore[chartType]; if(!store || !store.regions) return;
+            let panel = document.getElementById('panel_' + chartType); if(panel) { panel.innerHTML = `<div class="text-center text-slate-400 flex flex-col items-center"><i class="fas fa-hand-pointer text-3xl mb-2 text-blue-200"></i><p class="text-[10px] font-medium uppercase tracking-wider text-slate-500">Interactive Chart</p><p class="text-xs text-slate-400 mt-1">Click points on the chart to view monthly breakdown.</p></div>`; }
+            let datasets = []; let isCombined = chartType.includes('Combined');
+            if (val === 'ALL') {
+                Object.keys(store.grandStatusMap).sort().forEach(st => { datasets.push({ label: st, data: store.grandStatusMap[st], borderColor: getColorForLabel(st), backgroundColor: getColorForLabel(st), tension: 0.4, fill: false, borderWidth: 2, pointRadius: 3, pointHoverRadius: 6 }); });
+                if (isCombined && store.grandBacklog && store.grandBacklog.some(v=>v>0)) { datasets.push({ label: 'Backlog Total', data: store.grandBacklog, borderColor: '#0f766e', backgroundColor: '#0f766e', borderDash: [4, 4], tension: 0.4, fill: false, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4 }); }
+                if (isCombined && store.grandTarget && store.grandTarget.some(v=>v>0)) { datasets.push({ label: 'Target', data: store.grandTarget, borderColor: '#3b82f6', backgroundColor: '#3b82f6', borderDash: [5, 5], tension: 0.1, fill: false, borderWidth: 2.5, pointRadius: 4, pointHoverRadius: 6, pointStyle: 'rect' }); }
+            } else {
+                let rMap = store.statusMap[val]; if (rMap) { Object.keys(rMap).sort().forEach(st => { datasets.push({ label: st, data: rMap[st].slice(0, 12), borderColor: getColorForLabel(st), backgroundColor: getColorForLabel(st), tension: 0.4, fill: false, borderWidth: 2, pointRadius: 3, pointHoverRadius: 6 }); }); }
+                if (isCombined && store.backlogMap && store.backlogMap[val]) { datasets.push({ label: `Backlog Total`, data: store.backlogMap[val], borderColor: '#0f766e', backgroundColor: '#0f766e', borderDash: [4, 4], tension: 0.4, fill: false, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4 }); }
+                if (isCombined && store.targetMap && store.targetMap[val]) { datasets.push({ label: `Target`, data: store.targetMap[val], borderColor: '#3b82f6', backgroundColor: '#3b82f6', borderDash: [5, 5], tension: 0.1, fill: false, borderWidth: 2.5, pointRadius: 4, pointHoverRadius: 6, pointStyle: 'rect' }); }
+            }
+            drawLineChart('chart_' + chartType, engMonthsAbbr, datasets, chartType);
+        }
+
+        function renderSalesStatusTable() {
+            let getVals = (id) => Array.from(document.getElementById(id)?.selectedOptions || []).map(o=>o.value).filter(v=>v);
+            let [y, m, cg, sr, sp, pd, dr, pr] = ['filterYear','filterMonth','filterCG','filterSR','globalFilterSpec','globalFilterProduct','filterDealerRegion','filterProjectRegion'].map(getVals);
+            let d = projectData.filter(r => (y.length===0 || y.includes(String(r['ปี']||''))) && (m.length===0 || m.includes(String(r['เดือน']||''))) && (cg.length===0 || cg.includes(String(r['Customer Group']||''))) && (sr.length===0 || sr.includes(String(r['SR Resp.']||''))) && (sp.length===0 || sp.includes(String(r['Product Spec เดิม']||''))) && (pd.length===0 || pd.includes(String(r['Product']||''))) && (dr.length===0 || dr.includes(String(r['Dealer Region']||''))) && (pr.length===0 || pr.includes(String(r['Project Region']||''))) );
+            
+            let ssYear = document.getElementById('ssTableYear')?.value || 'all'; let dTable = ssYear !== 'all' ? d.filter(r => getYearFromLastUpdate(r) === ssYear) : d;
+            let statusMap = {};
+            dTable.forEach(r => {
+                let st = (r['Sales Status'] || 'Unspecified').trim(); if (!st) st = 'Unspecified';
+                let stLower = st.toLowerCase(); if(stLower === 'win') st = 'Win'; else if(stLower === 'loss') st = 'Loss'; else if(stLower === 'follow') st = 'Follow'; else if(stLower === 'high potential') st = 'High Potential';
+                let mIdx = getMonthIndexFromLastUpdate(r); let opp = getOppTotal(r); 
+                if (!statusMap[st]) statusMap[st] = Array(13).fill(0); if (mIdx !== 999 && mIdx >= 0 && mIdx <= 11) { statusMap[st][mIdx] += opp; } else if (opp > 0) { statusMap[st][12] += opp; }
+            });
+            
+            let backlogTotal = getBacklogForRegion(d, 'ALL', ssYear), totalBacklogAll = backlogTotal.reduce((a,b) => a+b, 0);
+            let tbody = document.getElementById('ssTableBody');
+            if(tbody) {
+                let html = '', statuses = Object.keys(statusMap).sort(), grandTotal = Array(12).fill(0), allTotal = 0, chartDatasets = []; 
+                if (statuses.length === 0) { html = `<tr><td colspan="14" class="text-center py-6 text-slate-400">No data found based on filters</td></tr>`; } 
+                else {
+                    statuses.forEach(st => {
+                        let rowTotal = statusMap[st].reduce((a,b)=>a+b, 0); allTotal += rowTotal;
+                        chartDatasets.push({ label: st, data: statusMap[st].slice(0, 12), borderColor: getColorForLabel(st), backgroundColor: getColorForLabel(st), tension: 0.4, fill: false, borderWidth: 2, pointRadius: 4, pointHoverRadius: 6 });
+                        html += `<tr class="hover:bg-slate-50 transition-colors"><td class="text-left font-bold text-slate-700 sticky left-0 bg-white border-r border-slate-100 shadow-[inset_-1px_0_0_#f1f5f9]"><span class="flex items-center"><span class="w-2.5 h-2.5 rounded mr-2.5" style="background-color: ${getColorForLabel(st)}"></span>${st}</span></td>${statusMap[st].slice(0, 12).map((v, i) => { grandTotal[i] += v; return `<td>${makeClickable(v, 'master', 'ALL', st, i, ssYear)}</td>`; }).join('')}<td class="font-bold bg-slate-50 border-l border-slate-200">${makeClickable(rowTotal, 'master', 'ALL', st, 'total', ssYear, 'text-blue-700')}</td></tr>`;
+                    });
+                    chartDatasets.push({ label: 'Backlog YTD', data: backlogTotal, borderColor: '#0f766e', backgroundColor: '#0f766e', borderDash: [4, 4], tension: 0.4, fill: false, borderWidth: 2, pointRadius: 0 });
+                    html += `<tr class="bg-slate-100"><td class="text-left font-bold text-slate-800 sticky left-0 bg-slate-100 border-r border-slate-200 shadow-[inset_-1px_0_0_#e2e8f0] uppercase tracking-wide text-xs">Grand Total</td>${grandTotal.map((v, i) => `<td class="font-bold">${makeClickable(v, 'master', 'ALL', 'ALL', i, ssYear, 'text-slate-800')}</td>`).join('')}<td class="font-bold bg-blue-100 border-l border-blue-200 text-base">${makeClickable(allTotal, 'master', 'ALL', 'ALL', 'total', ssYear, 'text-blue-800')}</td></tr>`;
+                    html += `<tr class="bg-emerald-50 border-t border-slate-200"><td class="text-left font-bold text-emerald-900 sticky left-0 bg-emerald-50 border-r border-emerald-200 shadow-[inset_-1px_0_0_#a7f3d0] text-xs uppercase tracking-wide"><i class="fas fa-layer-group mr-1.5 text-emerald-600"></i> Total Backlog YTD</td>${backlogTotal.map((v, i) => `<td class="font-bold text-emerald-800 text-xs">${makeClickable(v, 'backlog_all', 'ALL', 'Backlog', i, ssYear, 'text-emerald-800')}</td>`).join('')}<td class="font-bold text-emerald-900 bg-emerald-100 border-l border-emerald-300 text-sm">${makeClickable(totalBacklogAll, 'backlog_all', 'ALL', 'Backlog', 'total', ssYear, 'text-emerald-900')}</td></tr>`;
+                }
+                tbody.innerHTML = html; drawLineChart('chart_ssTotal', engMonthsAbbr, chartDatasets);
+            }
+            
+            buildRegionStatusTable(d, d, 'allRegionTableBody', ssYear, 'allRegion', false);
+            let dRedBrick = d.filter(r => String(r['Product Spec เดิม']||'').includes('อิฐมอญ')); buildRegionStatusTable(dRedBrick, dRedBrick, 'redBrickTableBody', ssYear, 'redBrick', false);
+            let rbCombYear = document.getElementById('sel_redBrickCombinedYear')?.value || 'ALL'; buildRegionStatusTable(dRedBrick, dRedBrick, 'redBrickCombinedTableBody', rbCombYear, 'redBrickCombined', true, rbCombYear, 'redbrick');
+            
+            let dAlc = d.filter(r => { let prod = String(r['Product']||'').toLowerCase(); return prod.includes('other size') || prod.includes('alc other'); }); buildRegionStatusTable(dAlc, dAlc, 'alcOtherTableBody', ssYear, 'alcOther', false);
+            let alcCombYear = document.getElementById('sel_alcOtherCombinedYear')?.value || 'ALL'; buildRegionStatusTable(dAlc, dAlc, 'alcOtherCombinedTableBody', alcCombYear, 'alcOtherCombined', true, alcCombYear, 'alc');
+
+            let dPrecast = d.filter(r => String(r['Product Spec เดิม']||'').toLowerCase().includes('precast')); buildRegionStatusTable(dPrecast, dPrecast, 'precastTableBody', ssYear, 'precast', false);
+            let pcCombYear = document.getElementById('sel_precastCombinedYear')?.value || 'ALL'; buildRegionStatusTable(dPrecast, dPrecast, 'precastCombinedTableBody', pcCombYear, 'precastCombined', true, pcCombYear, 'precast');
+        }
+
+        function updateCharts() {
+            let ids = ['filterYear','filterMonth','filterCG','filterSR','globalFilterSpec','globalFilterProduct','filterDealerRegion','filterProjectRegion'];
+            let getVals = (id) => Array.from(document.getElementById(id)?.selectedOptions || []).map(o=>o.value).filter(v=>v);
+            let [y, m, cg, sr, sp, pd, dr, pr] = ids.map(getVals);
+            let d = projectData.filter(r => (y.length===0 || y.includes(String(r['ปี']||''))) && (m.length===0 || m.includes(String(r['เดือน']||''))) && (cg.length===0 || cg.includes(String(r['Customer Group']||''))) && (sr.length===0 || sr.includes(String(r['SR Resp.']||''))) && (sp.length===0 || sp.includes(String(r['Product Spec เดิม']||''))) && (pd.length===0 || pd.includes(String(r['Product']||''))) && (dr.length===0 || dr.includes(String(r['Dealer Region']||''))) && (pr.length===0 || pr.includes(String(r['Project Region']||''))) );
+            if(typeof Chart === 'undefined') return;
+            ['statusChart','projectRegionChart','typeChart','lintelChart','counterChart','quarterlyChart','forecastCombinedChart', 'chart_ssTotal', 'chart_allRegion', 'chart_redBrick', 'chart_alcOther', 'chart_precast', 'chart_redBrickCombined', 'chart_alcOtherCombined', 'chart_precastCombined'].forEach(c => { if(chartInstances[c]) chartInstances[c].destroy(); });
+            
+            let stS = {}, tyS = {}, regS = {}, tSq = 0, lintelS = {}, counterS = {}, qMap = {};
+            d.forEach(r => { 
+                let st = r['Sales Status']||'Unspecified'; let stLower = st.toLowerCase(); if(stLower === 'win') st = 'Win'; else if(stLower === 'loss') st = 'Loss'; else if(stLower === 'follow') st = 'Follow'; else if(stLower === 'high potential') st = 'High Potential';
+                let ty = r['ประเภทโครงการ']||'Unspecified', a = getOppTotal(r), reg = r['Project Region']||'Unspecified'; tSq += a; 
+                if(!stS[st]) stS[st]={c:0,s:0}; stS[st].c++; stS[st].s+=a; if(!tyS[ty]) tyS[ty]={c:0,s:0}; tyS[ty].c++; tyS[ty].s+=a; if(!regS[reg]) regS[reg]={c:0,s:0}; regS[reg].c++; regS[reg].s+=a;
+                let vL = parseCleanNumber(r['Opp.Lintel/ตร.ม.']); if(vL > 0) { if(!lintelS[st]) lintelS[st]={c:0,s:0}; lintelS[st].c++; lintelS[st].s+=vL; }
+                let vC = parseCleanNumber(r['Opp.Counter/ตร.ม.']); if(vC > 0) { if(!counterS[st]) counterS[st]={c:0,s:0}; counterS[st].c++; counterS[st].s+=vC; }
+                if(!qMap[st]) qMap[st] = [0,0,0,0]; let mIdx = getMonthIndexExt(r); if(mIdx >= 0 && mIdx <= 2) qMap[st][0] += a; else if(mIdx >= 3 && mIdx <= 5) qMap[st][1] += a; else if(mIdx >= 6 && mIdx <= 8) qMap[st][2] += a; else if(mIdx >= 9 && mIdx <= 11) qMap[st][3] += a;
+            });
+            if(Object.keys(lintelS).length === 0) lintelS['No Data'] = {s:0}; if(Object.keys(counterS).length === 0) counterS['No Data'] = {s:0};
+
+            let elSum1 = document.getElementById('summaryTotalProjects'); if(elSum1) elSum1.innerText = d.length.toLocaleString(); 
+            let elSum2 = document.getElementById('summaryTotalSqm'); if(elSum2) elSum2.innerText = tSq.toLocaleString(undefined,{maximumFractionDigits:2});
+            let dWin = d.filter(r => (r['Sales Status'] || '').trim().toLowerCase() === 'win'); let winSqm = dWin.reduce((sum, r) => sum + getOppTotal(r), 0);
+            let elWin = document.getElementById('summaryWinSqm'); if(elWin) elWin.innerText = winSqm.toLocaleString(undefined,{maximumFractionDigits:2});
+            let elWinRate = document.getElementById('summaryWinRate'); if(elWinRate) elWinRate.innerText = tSq > 0 ? (winSqm/tSq*100).toFixed(1) + '%' : '0%';
+
+            let genChart = (id, obj, type, targetFieldForClick = null) => { let el = document.getElementById(id); if(!el) return; let lbl = Object.keys(obj).sort((a,b)=>a==='Unspecified'?1:b==='Unspecified'?-1:obj[b].s-obj[a].s); let dat = lbl.map(k=>obj[k].s); chartInstances[id] = new Chart(el, { type: type, data: { labels: lbl.map(k=>`${k}: ${obj[k].s.toLocaleString()}`), datasets: [{data:dat, backgroundColor:getColorsForLabels(lbl), borderWidth:0}] }, options: getPieChartOptions(targetFieldForClick) }); };
+            genChart('statusChart', stS, 'doughnut'); genChart('projectRegionChart', regS, 'doughnut'); genChart('typeChart', tyS, 'doughnut'); genChart('lintelChart', lintelS, 'doughnut', 'Opp.Lintel/ตร.ม.'); genChart('counterChart', counterS, 'doughnut', 'Opp.Counter/ตร.ม.');
+
+            let qEl = document.getElementById('quarterlyChart');
+            if(qEl) {
+                let qLabels = ['Q1 (Jan-Mar)', 'Q2 (Apr-Jun)', 'Q3 (Jul-Sep)', 'Q4 (Oct-Dec)']; let qDatasets = Object.keys(qMap).sort().map(st => ({ label: st, data: qMap[st], backgroundColor: getColorForLabel(st), borderRadius: 4 }));
+                chartInstances.quarterlyChart = new Chart(qEl, { type: 'bar', data: { labels: qLabels, datasets: qDatasets }, options: { responsive: true, maintainAspectRatio: false, layout: { padding: { top: 20 } }, plugins: { legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, font: { family: 'Sarabun', size:11 } } }, datalabels: { color: '#475569', anchor: 'end', align: 'top', font: { weight: 'bold', size: 9, family: 'Sarabun' }, formatter: (val) => val > 0 ? val.toLocaleString(undefined, {maximumFractionDigits:0}) : '', display: function(context) { return context.dataset.data[context.dataIndex] > 0; } } }, scales: { x: { stacked: false, grid:{display:false} }, y: { beginAtZero: true, stacked: false, border:{dash:[4,4]}, grid:{color:'#e2e8f0'} } } } });
+            }
+            
+            let fcYear = document.getElementById('forecastCombinedYear')?.value || 'ALL'; let displayFieldsG5 = fcYear === 'ALL' ? fieldsG5 : fieldsG5.filter(f => f.includes(fcYear));
+            let fd = displayFieldsG5.map(mo => d.reduce((sum, r) => sum + parseCleanNumber(r[mo]), 0)); let fdWin = displayFieldsG5.map(mo => dWin.reduce((sum, r) => sum + parseCleanNumber(r[mo]), 0));
+            let fcCombEl = document.getElementById('forecastCombinedChart'); 
+            if(fcCombEl) {
+                fcCombEl.parentElement.style.minWidth = fcYear === 'ALL' ? '1800px' : '600px';
+                chartInstances.forecastCombinedChart = new Chart(fcCombEl, { type: 'bar', data: { labels: displayFieldsG5, datasets: [{ label: 'Total Forecast', data: fd, backgroundColor: '#3b82f6', borderRadius: 4, order: 2 }, { label: 'Backlog (Win)', data: fdWin, backgroundColor: '#10b981', type: 'line', fill: true, borderColor: '#059669', borderWidth: 2, pointRadius: 3, order: 1 }] }, options: { responsive:true, maintainAspectRatio:false, layout: { padding: { top: 20 } }, plugins:{ datalabels:{display:false}, legend:{display:false} }, scales: { x: { grid:{display:false}, ticks:{font:{size:9}} }, y: { beginAtZero: true, border:{dash:[4,4]}, grid:{color:'#e2e8f0'} } } } });
+            }
+
+            updateBacklogTable(); updateBacklogRedBrickTable(); updateBacklogAlcOtherTable(); updateBacklogPrecastTable(); updateTargetTable(); renderTable(); renderSalesStatusTable(); 
+        }
+
+        function switchTab(id) { 
+            ['formTab','dashboardTab'].forEach(t => { let el=document.getElementById(t); if(el) el.classList.add('hidden'); let btn=document.getElementById('btn-'+t); if(btn) btn.classList.remove('tab-active','text-blue-700', 'border-blue-700', 'border-b-2'); }); 
+            let target = document.getElementById(id); if(target) target.classList.remove('hidden'); 
+            let targetBtn = document.getElementById('btn-'+id); if(targetBtn) targetBtn.classList.add('tab-active', 'border-b-2', 'border-blue-700'); 
+            if(id==='formTab') { let db=document.getElementById('btn-dashboardTab'); if(db) db.classList.add('text-slate-500'); } else { let fb=document.getElementById('btn-formTab'); if(fb) fb.classList.add('text-slate-500'); if(editIndex>=0) cancelEdit(); setTimeout(()=>{ updateFilterDropdowns(); populateTargetFilters(); updateCharts(); updateTargetTable(); }, 50); } 
+        }
+
+        function resetFilters() { 
+            ['filterYear','filterMonth','filterCG','filterSR','globalFilterSpec','globalFilterProduct','filterDealerRegion','filterProjectRegion'].forEach(id=>{ let el=document.getElementById(id); if(el) Array.from(el.options).forEach(o=>o.selected=false); }); 
+            let sc = document.getElementById('searchContractorInput'); if(sc) sc.value = ""; let si = document.getElementById('searchInput'); if(si) si.value = ""; 
+            let ssTbl = document.getElementById('ssTableYear'); if (ssTbl) ssTbl.value = "all"; 
+            let ty = document.getElementById('targetFilterYear'); if(ty) ty.value = 'ALL'; let tr = document.getElementById('targetFilterRegion'); if(tr) tr.value = 'ALL'; let tp = document.getElementById('targetFilterProduct'); if(tp) tp.value = 'ALL';
+            updateCharts(); 
+        }
+
+        async function handleLogin() {
+            let u = document.getElementById('loginUsername').value, p = document.getElementById('loginPassword').value, err = document.getElementById('loginError'), btn = document.getElementById('btnLogin');
+            if(!cloudApiUrl) { err.innerText = "ยังไม่ได้ตั้งค่า Web App URL กรุณาตั้งค่าก่อน (กดไอคอนเฟืองมุมขวาบน)"; err.classList.remove('hidden'); return; }
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>กำลังตรวจสอบ...'; btn.disabled = true;
+            try {
+                let res = await fetch(cloudApiUrl, { method: 'POST', body: JSON.stringify({action: 'login', username: u, password: p}) }); let result = await res.json();
+                if(result.success) { currentUser = result.name; safeSetStorage('scgCurrentUser', currentUser); document.getElementById('loginOverlay').classList.add('hidden'); document.getElementById('appContainer').classList.remove('hidden'); document.body.classList.remove('overflow-hidden'); document.getElementById('displayUserName').innerText = currentUser; let cbIdx = allFields.indexOf('Created by'); if(cbIdx !== -1) { let cbEl = document.getElementById(`input-${cbIdx}`); if(cbEl) { cbEl.value = currentUser; cbEl.readOnly = true; cbEl.className = "w-full bg-gray-100 text-gray-500 font-bold border border-gray-200 rounded-xl p-2.5 text-sm cursor-not-allowed"; } } bootApp(); } else { err.innerText = result.msg || "Username หรือ Password ไม่ถูกต้อง"; err.classList.remove('hidden'); }
+            } catch(e) { err.innerText = "เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาตรวจสอบ Web App URL"; err.classList.remove('hidden'); }
+            btn.innerHTML = 'Sign In'; btn.disabled = false;
+        }
+
+        function handleLogout() { if(confirm("ต้องการออกจากระบบใช่หรือไม่?")) { safeRemoveStorage('scgCurrentUser'); location.reload(); } }
+
+        function bootApp() {
+            generateInputs(fieldsG1, 'group1-container'); generateInputs(fieldsG2, 'group2-container'); generateInputs(fieldsG3, 'group3-container'); generateInputs(fieldsG4, 'group4-container'); generateInputs(fieldsG5, 'group5-container'); initTableHeader();
+            let cbIdx = allFields.indexOf('Created by'); if(cbIdx !== -1) { let cbEl = document.getElementById(`input-${cbIdx}`); if(cbEl && currentUser) { cbEl.value = currentUser; cbEl.readOnly = true; cbEl.className = "w-full bg-gray-100 text-gray-500 font-bold border border-gray-200 rounded-xl p-2.5 text-sm cursor-not-allowed"; } }
+            if(cloudApiUrl) pullFromCloud(); else loadLocalData(); 
+        }
+
+        document.addEventListener('DOMContentLoaded', () => { 
+            let apiEl = document.getElementById('apiUrlInput'); if(apiEl) apiEl.value = cloudApiUrl;
+            if(currentUser) { document.getElementById('loginOverlay').classList.add('hidden'); document.getElementById('appContainer').classList.remove('hidden'); document.body.classList.remove('overflow-hidden'); document.getElementById('displayUserName').innerText = currentUser; bootApp(); } 
+            else { document.getElementById('loginOverlay').classList.remove('hidden'); document.getElementById('appContainer').classList.add('hidden'); document.body.classList.add('overflow-hidden'); }
+        });
+    </script>
+</body>
+</html>
