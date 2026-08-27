@@ -95,6 +95,9 @@
         .info-tag-green { background:#d1fae5; color:#065f46; }
         .info-tag-red { background:#fee2e2; color:#991b1b; }
         .info-tag-amber { background:#fef3c7; color:#92400e; }
+        .yearly-panel { background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%); border-radius: 10px; padding: 12px; border: 1px solid #dbeafe; }
+        .yearly-stat { background: #ffffff; border-radius: 8px; padding: 10px; border: 1px solid #e2e8f0; transition: all 0.2s; }
+        .yearly-stat:hover { border-color: #3b82f6; transform: translateY(-1px); box-shadow: 0 4px 8px rgba(59, 130, 246, 0.1); }
     </style>
 </head>
 <body class="text-slate-800 h-screen flex flex-col overflow-hidden" id="main-body">
@@ -545,9 +548,9 @@
         function safeGetStorage(key) { try { return localStorage.getItem(key); } catch(e) { return null; } }
         function safeSetStorage(key, val) { try { localStorage.setItem(key, val); } catch(e) {} }
         function safeRemoveStorage(key) { try { localStorage.removeItem(key); } catch(e) {} }
-        if (safeGetStorage('app_version_update') !== 'v28_backlog_cumulative') {
+        if (safeGetStorage('app_version_update') !== 'v29_cumulative_follow') {
             safeRemoveStorage('scgApiUrl'); safeRemoveStorage('scgProjectData'); safeRemoveStorage('scgTargetData'); safeRemoveStorage('scgCurrentUser');
-            safeSetStorage('app_version_update', 'v28_backlog_cumulative');
+            safeSetStorage('app_version_update', 'v29_cumulative_follow');
         }
         try { if (typeof Chart !== 'undefined') { Chart.defaults.font.family = 'Sarabun'; if (typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels); } } catch(err) {}
 
@@ -950,8 +953,8 @@
         async function clearData() { if(confirm("ล้างข้อมูลทั้งหมดใช่หรือไม่?")) { projectData = []; invalidateCache(); await saveToLocalStorage(); updateDataLists(); renderTable(); updateFilterDropdowns(); updateCharts(); showToast("ล้างข้อมูลสำเร็จ", 'success'); } }
         function exportToExcel() { let pass = prompt("กรุณากรอกรหัสผ่านเพื่อยืนยันการส่งออกข้อมูล Excel:"); if (pass === null) return; if (pass !== "Guide081#") { showToast("รหัสผ่านไม่ถูกต้อง", 'error'); return; } if (projectData.length === 0) { showToast("ไม่มีข้อมูลสำหรับส่งออก", 'error'); return; } let exportData = projectData.map(row => { let newRow = {}; allFields.forEach(f => { newRow[f] = row[f] || ""; }); return newRow; }); try { const ws = XLSX.utils.json_to_sheet(exportData); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "ProjectData"); let d = new Date(); XLSX.writeFile(wb, `Sales_Data_${d.getFullYear()}${(d.getMonth()+1).toString().padStart(2,'0')}${d.getDate().toString().padStart(2,'0')}.xlsx`); showToast('Export สำเร็จ', 'success'); } catch(e) { showToast("Export ผิดพลาด", 'error'); } }
         function exportTableToExcel(tableId, filenamePrefix) { let table = document.getElementById(tableId); if (!table) return; try { let wb = XLSX.utils.book_new(); let ws = XLSX.utils.table_to_sheet(table); XLSX.utils.book_append_sheet(wb, ws, "Data"); XLSX.writeFile(wb, `${filenamePrefix}_Export.xlsx`); showToast('Export Excel สำเร็จ', 'success'); } catch(e) { showToast("Export ผิดพลาด", 'error'); } }
-        const getExportOptions = (elementId) => ({ scale: 2, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', onclone: (clonedDoc) => { let el = clonedDoc.getElementById(elementId); if(el) { el.style.width = 'max-content'; el.style.minWidth = '100%'; let scrolls = el.querySelectorAll('.overflow-x-auto, .overflow-y-auto, .overflow-hidden'); scrolls.forEach(n => { n.classList.remove('overflow-x-auto', 'overflow-y-auto', 'overflow-hidden'); n.style.overflow = 'visible'; }); let stickies = el.querySelectorAll('.sticky, .sticky-col'); stickies.forEach(n => { n.style.position = 'static'; n.classList.remove('sticky', 'sticky-col'); n.style.boxShadow = 'none'; }); let btns = el.querySelectorAll('.export-buttons button'); btns.forEach(btn => btn.style.display = 'none'); let links = el.querySelectorAll('.table-link'); links.forEach(a => { let span = document.createElement('span'); span.innerHTML = a.innerHTML; span.className = a.className; span.classList.remove('table-link', 'hover:underline', 'cursor-pointer'); a.parentNode.replaceChild(span, a); }); } } });
-        async function exportSectionAsImage(elementId, filenamePrefix, btnEvent) { let el = document.getElementById(elementId); if(!el) return; let btn = btnEvent; let oldHtml = ''; if(btn) { oldHtml = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; btn.disabled = true; } try { const canvas = await html2canvas(el, getExportOptions(elementId)); const link = document.createElement('a'); link.download = filenamePrefix + '_' + Date.now() + '.jpg'; link.href = canvas.toDataURL('image/jpeg', 1.0); link.click(); showToast('Export รูปสำเร็จ', 'success'); } catch(e) { showToast("Export รูปผิดพลาด", 'error'); } finally { if(btn) { btn.innerHTML = oldHtml; btn.disabled = false; } } }
+        const getExportOptions = (elementId) => ({ scale: 3, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', logging: false, onclone: (clonedDoc) => { let el = clonedDoc.getElementById(elementId); if(el) { el.style.width = 'max-content'; el.style.minWidth = '100%'; let scrolls = el.querySelectorAll('.overflow-x-auto, .overflow-y-auto, .overflow-hidden'); scrolls.forEach(n => { n.classList.remove('overflow-x-auto', 'overflow-y-auto', 'overflow-hidden'); n.style.overflow = 'visible'; }); let stickies = el.querySelectorAll('.sticky, .sticky-col'); stickies.forEach(n => { n.style.position = 'static'; n.classList.remove('sticky', 'sticky-col'); n.style.boxShadow = 'none'; }); let btns = el.querySelectorAll('.export-buttons button, .no-export'); btns.forEach(btn => btn.style.display = 'none'); let links = el.querySelectorAll('.table-link'); links.forEach(a => { let span = document.createElement('span'); span.innerHTML = a.innerHTML; span.className = a.className; span.classList.remove('table-link', 'hover:underline', 'cursor-pointer'); a.parentNode.replaceChild(span, a); }); } } });
+        async function exportSectionAsImage(elementId, filenamePrefix, btnEvent) { let el = document.getElementById(elementId); if(!el) return; let btn = btnEvent; let oldHtml = ''; if(btn) { oldHtml = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; btn.disabled = true; } try { const canvas = await html2canvas(el, getExportOptions(elementId)); const link = document.createElement('a'); link.download = filenamePrefix + '_' + Date.now() + '.jpg'; link.href = canvas.toDataURL('image/jpeg', 1.0); link.click(); showToast('Export รูปคุณภาพสูงสำเร็จ', 'success'); } catch(e) { showToast("Export รูปผิดพลาด", 'error'); } finally { if(btn) { btn.innerHTML = oldHtml; btn.disabled = false; } } }
         function exportChartOnly(chartId, filename) {
             let canvas = document.getElementById(chartId); if (!canvas) return showToast("ไม่พบข้อมูลกราฟ", 'error');
             try { let tempCanvas = document.createElement('canvas'); let sf = 3; tempCanvas.width = canvas.width * sf; tempCanvas.height = canvas.height * sf; let ctx = tempCanvas.getContext('2d'); ctx.scale(sf, sf); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height); let link = document.createElement('a'); link.download = filename + '_' + Date.now() + '.jpg'; link.href = tempCanvas.toDataURL('image/jpeg', 1.0); link.click(); showToast('ดาวน์โหลดกราฟสำเร็จ', 'success'); } catch(e) { showToast("ดาวน์โหลดผิดพลาด", 'error'); }
@@ -1042,11 +1045,168 @@
             chartInstances[canvasId] = new Chart(el, { type: 'line', data: { labels, datasets }, options, plugins: [customBg] });
         }
 
-        // ================== INTERACTIVE PANEL (Cumulative = Backlog Total) ==================
+        // ================== YEARLY ANALYSIS DATA HELPER ==================
+        function computeYearlyAnalysis(chartType) {
+            let store = regionalDataStore[chartType];
+            if (!store) return null;
+            let regionSel = document.getElementById('sel_' + chartType);
+            let regionVal = regionSel ? regionSel.value : 'ALL';
+
+            // ดึงข้อมูลรายเดือน (Core Statuses)
+            let coreData = { 'Win': Array(12).fill(0), 'Follow': Array(12).fill(0), 'High Potential': Array(12).fill(0), 'Loss': Array(12).fill(0) };
+            let source = regionVal === 'ALL' ? store.grandStatusMap : (store.statusMap[regionVal] || {});
+            CORE_STATUSES.forEach(st => {
+                if (source[st]) {
+                    for (let i = 0; i < 12; i++) coreData[st][i] = source[st][i] || 0;
+                }
+            });
+
+            // Backlog data
+            let backlogData;
+            if (regionVal === 'ALL' && store.grandBacklog && store.grandBacklog.some(v => v > 0)) backlogData = store.grandBacklog;
+            else if (store.backlogMap && store.backlogMap[regionVal]) backlogData = store.backlogMap[regionVal];
+            if (!backlogData || !backlogData.some(v => v > 0)) backlogData = computeBacklogForChart(chartType, regionVal);
+
+            // Total ทั้งปี
+            let totals = {};
+            CORE_STATUSES.forEach(st => totals[st] = coreData[st].reduce((a,b) => a+b, 0));
+            let grandTotal = totals['Win'] + totals['Follow'] + totals['High Potential'] + totals['Loss'];
+            let backlogTotal = backlogData.reduce((a,b) => a+b, 0);
+
+            // Peak month & lowest month
+            let monthlyTotals = Array(12).fill(0);
+            for (let i = 0; i < 12; i++) monthlyTotals[i] = coreData['Win'][i] + coreData['Follow'][i] + coreData['High Potential'][i] + coreData['Loss'][i];
+            let peakIdx = 0, lowIdx = 0;
+            for (let i = 1; i < 12; i++) { if (monthlyTotals[i] > monthlyTotals[peakIdx]) peakIdx = i; if (monthlyTotals[i] < monthlyTotals[lowIdx] || (monthlyTotals[lowIdx] === 0 && monthlyTotals[i] > 0)) lowIdx = i; }
+
+            // Rate calc
+            let winRate = grandTotal > 0 ? (totals['Win']/grandTotal*100) : 0;
+            let lossRate = grandTotal > 0 ? (totals['Loss']/grandTotal*100) : 0;
+            let followRate = grandTotal > 0 ? (totals['Follow']/grandTotal*100) : 0;
+            let hpRate = grandTotal > 0 ? (totals['High Potential']/grandTotal*100) : 0;
+            let pipeRate = followRate + hpRate;
+            let closedTotal = totals['Win'] + totals['Loss'];
+            let convRate = closedTotal > 0 ? (totals['Win']/closedTotal*100) : 0;
+
+            // Trend (comparing H2 vs H1)
+            let h1Sum = monthlyTotals.slice(0,6).reduce((a,b)=>a+b, 0);
+            let h2Sum = monthlyTotals.slice(6,12).reduce((a,b)=>a+b, 0);
+            let hGrowth = h1Sum > 0 ? ((h2Sum-h1Sum)/h1Sum*100) : (h2Sum > 0 ? 100 : 0);
+
+            // Active months count
+            let activeMonths = monthlyTotals.filter(v => v > 0).length;
+            let avgMonthly = activeMonths > 0 ? grandTotal/activeMonths : 0;
+
+            return { regionVal, totals, grandTotal, backlogTotal, coreData, backlogData, monthlyTotals, peakIdx, lowIdx, winRate, lossRate, followRate, hpRate, pipeRate, convRate, h1Sum, h2Sum, hGrowth, activeMonths, avgMonthly };
+        }
+
+        function renderYearlyAnalysis(chartType) {
+            let el = document.getElementById('yearly_' + chartType);
+            if (!el) return;
+            let a = computeYearlyAnalysis(chartType);
+            if (!a || a.grandTotal === 0) { el.innerHTML = `<div class="yearly-panel"><div class="text-center py-6 text-slate-400"><i class="fas fa-chart-area text-3xl mb-2"></i><p class="text-xs">ยังไม่มีข้อมูลเพียงพอสำหรับวิเคราะห์ทั้งปี</p></div></div>`; return; }
+
+            let regionLabel = a.regionVal === 'ALL' ? 'ทุกภาค' : a.regionVal;
+            let trendIcon = a.hGrowth >= 10 ? '<i class="fas fa-arrow-trend-up trend-up"></i>' : a.hGrowth <= -10 ? '<i class="fas fa-arrow-trend-down trend-down"></i>' : '<i class="fas fa-minus trend-flat"></i>';
+            let trendColor = a.hGrowth >= 0 ? 'text-emerald-700' : 'text-red-700';
+            let peakMonth = engMonthsAbbr[a.peakIdx];
+            let lowMonth = engMonthsAbbr[a.lowIdx];
+
+            // Insight text
+            let insight = '';
+            if (a.winRate >= 40 && a.convRate >= 50) insight = '✅ ผลงานดีเยี่ยม อัตราชนะและการปิดขายอยู่ในเกณฑ์สูง';
+            else if (a.winRate >= 25) insight = '👍 ผลงานอยู่ในเกณฑ์ดี ควรรักษาโมเมนตัมและเร่งปิด Pipeline';
+            else if (a.pipeRate >= 40) insight = '⚠️ มี Pipeline มาก แต่ Win Rate ต่ำ ควรเน้นการปิดการขาย';
+            else if (a.lossRate >= 30) insight = '🚨 Loss Rate สูง ควรทบทวนกลยุทธ์และวิเคราะห์เหตุผลการเสียงาน';
+            else insight = '📊 ควรเพิ่มปริมาณ Pipeline และเร่งปิดการขาย';
+
+            el.innerHTML = `
+            <div class="yearly-panel" id="yearly_export_${chartType}">
+                <div class="flex justify-between items-center mb-3 pb-2 border-b border-blue-200">
+                    <div>
+                        <h4 class="font-bold text-blue-900 text-sm flex items-center"><i class="fas fa-chart-area text-blue-600 mr-2"></i>การวิเคราะห์ทั้งปี (Yearly Analysis)</h4>
+                        <p class="text-[10px] text-slate-500 mt-0.5">ภาค: <span class="font-bold text-indigo-700">${regionLabel}</span> • Total 4 Statuses: ${fmtNumZ(a.grandTotal)} Sq.m.</p>
+                    </div>
+                    <button onclick="exportSectionAsImage('yearly_export_${chartType}', 'YearlyAnalysis_${chartType}', this)" class="no-export bg-white hover:bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition flex items-center gap-1.5"><i class="fas fa-image"></i> Export HD</button>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+                    <div class="yearly-stat border-l-4 border-emerald-500">
+                        <p class="text-[9px] font-bold text-emerald-700 uppercase">Win Total</p>
+                        <p class="text-base font-extrabold text-emerald-700">${fmtNumZ(a.totals['Win'])}</p>
+                        <p class="text-[10px] text-slate-500">${a.winRate.toFixed(1)}% ของ Total</p>
+                    </div>
+                    <div class="yearly-stat border-l-4 border-sky-500">
+                        <p class="text-[9px] font-bold text-sky-700 uppercase">High Potential</p>
+                        <p class="text-base font-extrabold text-sky-700">${fmtNumZ(a.totals['High Potential'])}</p>
+                        <p class="text-[10px] text-slate-500">${a.hpRate.toFixed(1)}% ของ Total</p>
+                    </div>
+                    <div class="yearly-stat border-l-4 border-amber-500">
+                        <p class="text-[9px] font-bold text-amber-700 uppercase">Follow Total</p>
+                        <p class="text-base font-extrabold text-amber-700">${fmtNumZ(a.totals['Follow'])}</p>
+                        <p class="text-[10px] text-slate-500">${a.followRate.toFixed(1)}% ของ Total</p>
+                    </div>
+                    <div class="yearly-stat border-l-4 border-red-500">
+                        <p class="text-[9px] font-bold text-red-700 uppercase">Loss Total</p>
+                        <p class="text-base font-extrabold text-red-700">${fmtNumZ(a.totals['Loss'])}</p>
+                        <p class="text-[10px] text-slate-500">${a.lossRate.toFixed(1)}% ของ Total</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
+                    <div class="yearly-stat bg-gradient-to-br from-emerald-50 to-white">
+                        <p class="text-[9px] font-bold text-emerald-700 uppercase"><i class="fas fa-layer-group mr-1"></i>Backlog Total</p>
+                        <p class="text-base font-extrabold text-emerald-800">${fmtNumZ(a.backlogTotal)}</p>
+                        <p class="text-[10px] text-slate-500">ยอดรับงาน Win ทั้งปี</p>
+                    </div>
+                    <div class="yearly-stat bg-gradient-to-br from-amber-50 to-white">
+                        <p class="text-[9px] font-bold text-amber-700 uppercase"><i class="fas fa-hourglass-half mr-1"></i>Follow Pipeline</p>
+                        <p class="text-base font-extrabold text-amber-800">${fmtNumZ(a.totals['Follow'])}</p>
+                        <p class="text-[10px] text-slate-500">รอติดตามทั้งปี</p>
+                    </div>
+                    <div class="yearly-stat bg-gradient-to-br from-blue-50 to-white">
+                        <p class="text-[9px] font-bold text-blue-700 uppercase"><i class="fas fa-exchange-alt mr-1"></i>Conversion</p>
+                        <p class="text-base font-extrabold text-blue-700">${a.convRate.toFixed(1)}%</p>
+                        <p class="text-[10px] text-slate-500">Win / (Win+Loss)</p>
+                    </div>
+                    <div class="yearly-stat bg-gradient-to-br from-purple-50 to-white">
+                        <p class="text-[9px] font-bold text-purple-700 uppercase"><i class="fas fa-chart-bar mr-1"></i>Avg/Month</p>
+                        <p class="text-base font-extrabold text-purple-700">${fmtNumZ(a.avgMonthly)}</p>
+                        <p class="text-[10px] text-slate-500">เฉลี่ย ${a.activeMonths} เดือน</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-2 mb-3">
+                    <div class="bg-white p-2.5 rounded-lg border border-slate-200">
+                        <p class="text-[9px] font-bold text-slate-500 uppercase"><i class="fas fa-arrow-up text-emerald-500 mr-1"></i>Peak Month</p>
+                        <p class="text-sm font-extrabold text-slate-800">${peakMonth}</p>
+                        <p class="text-[10px] text-emerald-700 font-semibold">${fmtNumZ(a.monthlyTotals[a.peakIdx])} Sq.m.</p>
+                    </div>
+                    <div class="bg-white p-2.5 rounded-lg border border-slate-200">
+                        <p class="text-[9px] font-bold text-slate-500 uppercase"><i class="fas fa-arrow-down text-red-500 mr-1"></i>Lowest Month</p>
+                        <p class="text-sm font-extrabold text-slate-800">${lowMonth}</p>
+                        <p class="text-[10px] text-red-700 font-semibold">${fmtNumZ(a.monthlyTotals[a.lowIdx])} Sq.m.</p>
+                    </div>
+                    <div class="bg-white p-2.5 rounded-lg border border-slate-200">
+                        <p class="text-[9px] font-bold text-slate-500 uppercase">${trendIcon} H2 vs H1 Trend</p>
+                        <p class="text-sm font-extrabold ${trendColor}">${a.hGrowth >= 0 ? '+' : ''}${a.hGrowth.toFixed(1)}%</p>
+                        <p class="text-[10px] text-slate-500">H1: ${fmtNumZ(a.h1Sum)} → H2: ${fmtNumZ(a.h2Sum)}</p>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-lg border border-blue-200">
+                    <p class="text-[10px] font-bold text-blue-800 uppercase mb-1"><i class="fas fa-lightbulb text-amber-500 mr-1"></i>Executive Insight</p>
+                    <p class="text-xs text-slate-700 leading-relaxed">${insight}</p>
+                </div>
+            </div>`;
+        }
+
+        // ================== INTERACTIVE PANEL (with Cumulative Follow) ==================
         function updateGraphSummaryPanel(chartType, clickedLabel, monthLabel, monthIndex, datasets, clickedColor) {
             let panel = document.getElementById('panel_' + chartType); if(!panel) return;
             let stHtml = '', mTotal = 0, coreMonthTotal = 0, otherHtml = '';
             let coreDs = [];
+            let followDataFromChart = null;
 
             datasets.forEach(ds => {
                 let val = ds.data[monthIndex] || 0;
@@ -1054,45 +1214,48 @@
                 let color = ds.borderColor || '#ccc';
                 let isCore = CORE_STATUSES.includes(label);
                 let row = `<div class="flex justify-between items-center text-xs mb-1 p-1.5 rounded transition ${label === clickedLabel ? 'bg-blue-50 border border-blue-100 font-bold' : ''}"><span class="flex items-center"><span class="w-2.5 h-2.5 rounded-sm mr-2" style="background-color: ${color}"></span>${label}${isCore ? '' : ' <span class="ml-1 text-[9px] text-slate-400">(Reference)</span>'}</span><span class="text-slate-800">${fmtNum(val)}</span></div>`;
-                if (isCore) { stHtml += row; coreMonthTotal += val; coreDs.push(ds); }
+                if (isCore) { stHtml += row; coreMonthTotal += val; coreDs.push(ds); if (label === 'Follow') followDataFromChart = ds.data; }
                 else { otherHtml += row; }
                 mTotal += val;
             });
 
             // ===== Backlog Data =====
-            // ดึง Backlog จาก regionalDataStore แทน dataset ในกราฟ (เพราะกราฟบางตัวไม่มี Backlog dataset)
             let backlogData = null;
             let store = regionalDataStore[chartType];
             let regionSel = document.getElementById('sel_' + chartType);
             let regionVal = regionSel ? regionSel.value : 'ALL';
 
             if (store) {
-                // ลอง backlogMap ก่อน (สำหรับ Combined tables)
-                if (regionVal === 'ALL' && store.grandBacklog && store.grandBacklog.some(v => v > 0)) {
-                    backlogData = store.grandBacklog;
-                } else if (store.backlogMap && store.backlogMap[regionVal]) {
-                    backlogData = store.backlogMap[regionVal];
-                }
+                if (regionVal === 'ALL' && store.grandBacklog && store.grandBacklog.some(v => v > 0)) backlogData = store.grandBacklog;
+                else if (store.backlogMap && store.backlogMap[regionVal]) backlogData = store.backlogMap[regionVal];
             }
+            if (!backlogData || !backlogData.some(v => v > 0)) backlogData = computeBacklogForChart(chartType, regionVal);
 
-            // ถ้ายังไม่มี Backlog data ให้คำนวณ on-the-fly จาก projectData (สำหรับกราฟที่ไม่มี combined เช่น allRegion, redBrick non-combined)
-            if (!backlogData || !backlogData.some(v => v > 0)) {
-                backlogData = computeBacklogForChart(chartType, regionVal);
-            }
-
-            // ตรวจสอบว่ามี Backlog dataset ในกราฟหรือไม่ (สำหรับ Combined)
             let backlogDsInChart = datasets.find(d => d.label && d.label.toLowerCase().includes('backlog'));
             let backlogColor = backlogDsInChart ? backlogDsInChart.borderColor : '#0f766e';
 
-            // คำนวณ Cumulative Backlog
-            let bMonthVal = 0, bCumulative = 0, bYearTotal = 0;
-            if (backlogData) {
-                bMonthVal = backlogData[monthIndex] || 0;
-                for (let i = monthIndex; i < 12; i++) bCumulative += (backlogData[i] || 0);
-                for (let i = 0; i < 12; i++) bYearTotal += (backlogData[i] || 0);
+            // ===== Follow Data =====
+            let followData = followDataFromChart;
+            if (!followData) {
+                // ดึง Follow จาก store
+                if (regionVal === 'ALL' && store && store.grandStatusMap && store.grandStatusMap['Follow']) followData = store.grandStatusMap['Follow'];
+                else if (store && store.statusMap && store.statusMap[regionVal] && store.statusMap[regionVal]['Follow']) followData = store.statusMap[regionVal]['Follow'];
             }
+            if (!followData) followData = Array(12).fill(0);
 
-            // Composition percentages
+            // Cumulative Backlog
+            let bMonthVal = backlogData[monthIndex] || 0;
+            let bCumulative = 0, bYearTotal = 0;
+            for (let i = monthIndex; i < 12; i++) bCumulative += (backlogData[i] || 0);
+            for (let i = 0; i < 12; i++) bYearTotal += (backlogData[i] || 0);
+
+            // Cumulative Follow
+            let fMonthVal = followData[monthIndex] || 0;
+            let fCumulative = 0, fYearTotal = 0;
+            for (let i = monthIndex; i < 12; i++) fCumulative += (followData[i] || 0);
+            for (let i = 0; i < 12; i++) fYearTotal += (followData[i] || 0);
+
+            // Composition
             let winVal = 0, lossVal = 0, followVal = 0, hpVal = 0;
             coreDs.forEach(ds => { let v = ds.data[monthIndex] || 0; if(ds.label === 'Win') winVal = v; else if(ds.label === 'Loss') lossVal = v; else if(ds.label === 'Follow') followVal = v; else if(ds.label === 'High Potential') hpVal = v; });
             let winPct = coreMonthTotal > 0 ? (winVal/coreMonthTotal*100).toFixed(1) : 0;
@@ -1104,7 +1267,7 @@
             panel.innerHTML = `<div class="w-full text-left animate-fade bg-white p-3 rounded-lg border border-slate-100 shadow-inner" id="export_panel_${chartType}">
                 <div class="border-b border-slate-200 pb-2 mb-3 flex justify-between items-center">
                     <h5 class="font-bold text-slate-800 text-xs flex items-center"><i class="fas fa-calendar-day text-blue-600 mr-1.5"></i>Month: ${monthLabel}</h5>
-                    <button onclick="exportSectionAsImage('export_panel_${chartType}', 'Status_Breakdown_${chartType}', this)" class="text-slate-400 hover:text-blue-600 transition"><i class="fas fa-camera text-xs"></i></button>
+                    <button onclick="exportSectionAsImage('export_panel_${chartType}', 'Status_Breakdown_${chartType}', this)" class="no-export text-slate-400 hover:text-blue-600 transition"><i class="fas fa-camera text-xs"></i></button>
                 </div>
                 <div class="mb-3">
                     <p class="text-[9px] font-bold text-slate-400 uppercase mb-1">Core Status (Follow + High Potential + Loss + Win)</p>
@@ -1118,19 +1281,27 @@
                     <div class="bg-red-50 p-2 rounded border border-red-100"><p class="text-[9px] text-red-700 font-bold">LOSS SHARE</p><p class="text-lg font-extrabold text-red-700">${lossPct}%</p></div>
                     <div class="bg-blue-50 p-2 rounded border border-blue-100"><p class="text-[9px] text-blue-700 font-bold">CONV. RATE</p><p class="text-lg font-extrabold text-blue-700">${convRate}%</p></div>
                 </div>` : ''}
-                <div class="bg-emerald-50/70 p-3 rounded border border-emerald-100 border-l-4" style="border-left-color:${backlogColor}">
+                <div class="bg-emerald-50/70 p-3 rounded border border-emerald-100 border-l-4 mb-2" style="border-left-color:${backlogColor}">
                     <p class="text-[10px] font-extrabold text-emerald-700 uppercase mb-2 flex items-center"><i class="fas fa-layer-group mr-1.5"></i>Cumulative Backlog Total</p>
                     <div class="space-y-1.5">
                         <div class="flex justify-between text-[11px]"><span class="text-slate-600">${monthLabel} (Current Month):</span><span class="font-bold text-emerald-800">${fmtNum(bMonthVal)}</span></div>
                         <div class="flex justify-between text-[11px] pt-1 border-t border-emerald-200"><span class="text-slate-600">${monthLabel} → Dec (Remaining):</span><span class="font-extrabold text-emerald-900">${fmtNum(bCumulative)}</span></div>
                         <div class="flex justify-between text-[11px]"><span class="text-slate-600">Full Year Backlog:</span><span class="font-bold text-emerald-800">${fmtNum(bYearTotal)}</span></div>
                     </div>
-                    ${!backlogData || bYearTotal === 0 ? '<p class="text-[10px] text-slate-500 italic mt-2">* ไม่พบข้อมูล Backlog ในภาค/หมวดนี้</p>' : ''}
+                    ${bYearTotal === 0 ? '<p class="text-[10px] text-slate-500 italic mt-2">* ไม่พบข้อมูล Backlog</p>' : ''}
+                </div>
+                <div class="bg-amber-50/70 p-3 rounded border border-amber-100 border-l-4" style="border-left-color:#f59e0b">
+                    <p class="text-[10px] font-extrabold text-amber-700 uppercase mb-2 flex items-center"><i class="fas fa-hourglass-half mr-1.5"></i>Cumulative Follow Total</p>
+                    <div class="space-y-1.5">
+                        <div class="flex justify-between text-[11px]"><span class="text-slate-600">${monthLabel} (Current Month):</span><span class="font-bold text-amber-800">${fmtNum(fMonthVal)}</span></div>
+                        <div class="flex justify-between text-[11px] pt-1 border-t border-amber-200"><span class="text-slate-600">${monthLabel} → Dec (Remaining):</span><span class="font-extrabold text-amber-900">${fmtNum(fCumulative)}</span></div>
+                        <div class="flex justify-between text-[11px]"><span class="text-slate-600">Full Year Follow:</span><span class="font-bold text-amber-800">${fmtNum(fYearTotal)}</span></div>
+                    </div>
+                    ${fYearTotal === 0 ? '<p class="text-[10px] text-slate-500 italic mt-2">* ไม่พบข้อมูล Follow</p>' : ''}
                 </div>
             </div>`;
         }
 
-        // ===== ฟังก์ชันช่วย: คำนวณ Backlog สำหรับกราฟที่ไม่ใช่ Combined =====
         function computeBacklogForChart(chartType, regionVal) {
             let d = getFilteredData();
             if (chartType.includes('redBrick')) d = filterRedBrick(d);
@@ -1214,14 +1385,12 @@
             if (sel) { sel.innerHTML = '<option value="ALL">ALL REGIONS</option>' + regions.map(reg => `<option value="${reg}">${reg}</option>`).join(''); if (regions.includes(currentSel) || currentSel === 'ALL') sel.value = currentSel; else { sel.value = 'ALL'; currentSel = 'ALL'; } }
             let displayRegions = (currentSel === 'ALL') ? regions : [currentSel], html = '', grandTotal = Array(12).fill(0), allTotal = 0;
 
-            // เก็บ backlog ให้ทุกกรณี (ไม่จำเป็นต้อง combined อย่างเดียว)
             regionalDataStore[chartType] = { regions, statusMap: {}, grandStatusMap: {}, backlogMap: {}, grandBacklog: Array(12).fill(0), targetMap: {}, grandTarget: Array(12).fill(0) };
             let sourceMap = { 'allRegion':'region_all','redBrick':'region_redbrick','alcOther':'region_alc','precast':'region_precast','redBrickCombined':'region_redbrick_comb','alcOtherCombined':'region_alc_comb','precastCombined':'region_precast_comb' };
             let source = sourceMap[chartType];
             regions.forEach(reg => {
                 let statuses = Object.keys(statusMap[reg]).sort(); regionalDataStore[chartType].statusMap[reg] = statusMap[reg];
                 statuses.forEach(st => { if(!regionalDataStore[chartType].grandStatusMap[st]) regionalDataStore[chartType].grandStatusMap[st] = Array(12).fill(0); statusMap[reg][st].slice(0,12).forEach((v, i) => regionalDataStore[chartType].grandStatusMap[st][i] += v); });
-                // คำนวณ backlog เสมอ เพื่อให้ Interactive Panel มีข้อมูล
                 let rb = getBacklogForRegion(rawDataAllYears, reg, includeBacklog ? backlogYear : 'ALL');
                 regionalDataStore[chartType].backlogMap[reg] = rb;
                 rb.forEach((v,i) => regionalDataStore[chartType].grandBacklog[i] += v);
@@ -1254,7 +1423,7 @@
         }
         function drawRegionalLineChart(chartType) {
             let sel = document.getElementById('sel_' + chartType); if(!sel) return; let val = sel.value; let store = regionalDataStore[chartType]; if(!store || !store.regions) return;
-            let panel = document.getElementById('panel_' + chartType); if(panel) panel.innerHTML = `<div class="text-center text-slate-400 flex flex-col items-center"><i class="fas fa-hand-pointer text-3xl mb-2 text-blue-200"></i><p class="text-[10px] font-medium uppercase tracking-wider text-slate-500">Interactive Chart</p><p class="text-xs text-slate-400 mt-1">คลิกจุดบนกราฟเพื่อดูรายละเอียด</p><p class="text-[9px] text-slate-400 mt-2 italic">Total = Follow + High Potential + Loss + Win</p><p class="text-[9px] text-emerald-600 mt-1 italic font-semibold"><i class="fas fa-layer-group mr-1"></i>Cumulative = Backlog Total</p></div>`;
+            let panel = document.getElementById('panel_' + chartType); if(panel) panel.innerHTML = `<div class="text-center text-slate-400 flex flex-col items-center"><i class="fas fa-hand-pointer text-3xl mb-2 text-blue-200"></i><p class="text-[10px] font-medium uppercase tracking-wider text-slate-500">Interactive Chart</p><p class="text-xs text-slate-400 mt-1">คลิกจุดบนกราฟเพื่อดูรายละเอียด</p><p class="text-[9px] text-slate-400 mt-2 italic">Total = Follow + High Potential + Loss + Win</p><p class="text-[9px] text-emerald-600 mt-1 italic font-semibold"><i class="fas fa-layer-group mr-1"></i>Cumulative = Backlog Total + Follow Total</p></div>`;
             let datasets = []; let isCombined = chartType.includes('Combined');
             if (val === 'ALL') {
                 Object.keys(store.grandStatusMap).sort().forEach(st => datasets.push({ label: st, data: store.grandStatusMap[st], borderColor: getColorForLabel(st), backgroundColor: getColorForLabel(st), tension: 0.4, fill: false, borderWidth: 2, pointRadius: 3, pointHoverRadius: 6 }));
@@ -1266,6 +1435,8 @@
                 if (isCombined && store.targetMap && store.targetMap[val]) datasets.push({ label: 'Target', data: store.targetMap[val], borderColor: '#3b82f6', backgroundColor: '#3b82f6', borderDash: [5, 5], tension: 0.1, fill: false, borderWidth: 2.5, pointRadius: 4, pointHoverRadius: 6, pointStyle: 'rect' });
             }
             drawLineChart('chart_' + chartType, engMonthsAbbr, datasets, chartType);
+            // เรียก Yearly Analysis หลังจากวาดกราฟ
+            setTimeout(() => renderYearlyAnalysis(chartType), 100);
         }
         function renderSalesStatusTable() {
             let d = getFilteredData();
@@ -1353,8 +1524,9 @@
                             <div class="absolute top-2 right-2 z-10"><button onclick="exportChartOnly('chart_${cfg.key}', '${cfg.key}_Trend')" class="bg-white/90 hover:bg-white text-slate-500 hover:text-blue-600 w-8 h-8 rounded-full flex items-center justify-center shadow-sm transition"><i class="fas fa-camera text-xs"></i></button></div>
                             <canvas id="chart_${cfg.key}"></canvas>
                         </div>
-                        <div class="w-full lg:w-1/4 bg-white border border-slate-200 rounded p-4 flex flex-col justify-center relative min-h-[300px]" id="panel_${cfg.key}"></div>
+                        <div class="w-full lg:w-1/4 bg-white border border-slate-200 rounded p-4 flex flex-col justify-center relative min-h-[300px] overflow-y-auto max-h-[500px]" id="panel_${cfg.key}"></div>
                     </div>
+                    <div class="p-4 border-t border-slate-200 bg-white" id="yearly_${cfg.key}"></div>
                 </div>`;
             });
             el.innerHTML = html;
