@@ -98,6 +98,8 @@
         .yearly-panel { background: linear-gradient(135deg, #f8fafc 0%, #eff6ff 100%); border-radius: 10px; padding: 12px; border: 1px solid #dbeafe; }
         .yearly-stat { background: #ffffff; border-radius: 8px; padding: 10px; border: 1px solid #e2e8f0; transition: all 0.2s; }
         .yearly-stat:hover { border-color: #3b82f6; transform: translateY(-1px); box-shadow: 0 4px 8px rgba(59, 130, 246, 0.1); }
+        .panel-export-btn { background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: white; border-radius: 6px; padding: 4px 10px; font-size: 0.65rem; font-weight: 700; display: inline-flex; align-items: center; gap: 4px; transition: all 0.2s; box-shadow: 0 2px 4px rgba(30,64,175,0.2); }
+        .panel-export-btn:hover { filter: brightness(1.12); transform: translateY(-1px); box-shadow: 0 4px 8px rgba(30,64,175,0.3); }
     </style>
 </head>
 <body class="text-slate-800 h-screen flex flex-col overflow-hidden" id="main-body">
@@ -203,6 +205,9 @@
                         <div><label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Product Category</label><select multiple id="globalFilterProduct" onchange="updateCharts()" class="w-full bg-slate-50 border border-slate-200 text-xs outline-none h-20 focus:border-blue-500 rounded-lg"></select></div>
                         <div><label class="block text-[10px] font-bold text-indigo-600 uppercase mb-1">Project Region</label><select multiple id="filterProjectRegion" onchange="updateCharts()" class="w-full bg-indigo-50/50 border border-indigo-100 text-indigo-800 text-xs outline-none h-20 focus:border-indigo-500 rounded-lg"></select></div>
                         <div><label class="block text-[10px] font-bold text-purple-600 uppercase mb-1">Dealer Region</label><select multiple id="filterDealerRegion" onchange="updateCharts()" class="w-full bg-purple-50/50 border border-purple-100 text-purple-800 text-xs outline-none h-20 focus:border-purple-500 rounded-lg"></select></div>
+                        <div><label class="block text-[10px] font-bold text-teal-600 uppercase mb-1"><i class="fas fa-flag mr-1"></i>Owner Nationality</label><select multiple id="filterOwnerNat" onchange="updateCharts()" class="w-full bg-teal-50/50 border border-teal-100 text-teal-800 text-xs outline-none h-20 focus:border-teal-500 rounded-lg"></select></div>
+                        <div><label class="block text-[10px] font-bold text-rose-600 uppercase mb-1"><i class="fas fa-city mr-1"></i>ประเภทโครงการ</label><select multiple id="filterProjectType" onchange="updateCharts()" class="w-full bg-rose-50/50 border border-rose-100 text-rose-800 text-xs outline-none h-20 focus:border-rose-500 rounded-lg"></select></div>
+                        <div><label class="block text-[10px] font-bold text-cyan-600 uppercase mb-1"><i class="fas fa-store mr-1"></i>ร้านผู้แทนจำหน่าย</label><select multiple id="filterDealer" onchange="updateCharts()" class="w-full bg-cyan-50/50 border border-cyan-100 text-cyan-800 text-xs outline-none h-20 focus:border-cyan-500 rounded-lg"></select></div>
                     </div>
                 </div>
 
@@ -425,7 +430,7 @@
             <div id="execTab" class="hidden space-y-6">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
-                        <h2 class="text-2xl font-bold text-slate-800 tracking-tight"><i class="fas fa-crown text-amber-500 mr-2"></i>Executive Summary</i></h2>
+                        <h2 class="text-2xl font-bold text-slate-800 tracking-tight"><i class="fas fa-crown text-amber-500 mr-2"></i>Executive Summary</h2>
                         <p class="text-sm text-slate-500">มุมมองผู้บริหาร: Business Health, Target Achievement, Trends & Risks</p>
                     </div>
                     <button onclick="refreshExecutive()" class="btn-primary px-4 py-2 rounded-lg text-sm font-medium shadow"><i class="fas fa-sync-alt mr-2"></i>Refresh</button>
@@ -548,9 +553,9 @@
         function safeGetStorage(key) { try { return localStorage.getItem(key); } catch(e) { return null; } }
         function safeSetStorage(key, val) { try { localStorage.setItem(key, val); } catch(e) {} }
         function safeRemoveStorage(key) { try { localStorage.removeItem(key); } catch(e) {} }
-        if (safeGetStorage('app_version_update') !== 'v29_cumulative_follow') {
+        if (safeGetStorage('app_version_update') !== 'v30_panel_export_newfilters') {
             safeRemoveStorage('scgApiUrl'); safeRemoveStorage('scgProjectData'); safeRemoveStorage('scgTargetData'); safeRemoveStorage('scgCurrentUser');
-            safeSetStorage('app_version_update', 'v29_cumulative_follow');
+            safeSetStorage('app_version_update', 'v30_panel_export_newfilters');
         }
         try { if (typeof Chart !== 'undefined') { Chart.defaults.font.family = 'Sarabun'; if (typeof ChartDataLabels !== 'undefined') Chart.register(ChartDataLabels); } } catch(err) {}
 
@@ -661,9 +666,10 @@
         function fmtNum(n, d=2) { return n > 0 ? n.toLocaleString(undefined, {maximumFractionDigits: d}) : '-'; }
         function fmtNumZ(n, d=2) { return (n||0).toLocaleString(undefined, {maximumFractionDigits: d}); }
 
+        // ===== FILTER (with 3 new filters) =====
         function getFilterValues() {
             let getVals = (id) => Array.from(document.getElementById(id)?.selectedOptions || []).map(o=>o.value).filter(v=>v);
-            return { y: getVals('filterYear'), m: getVals('filterMonth'), cg: getVals('filterCG'), sr: getVals('filterSR'), sp: getVals('globalFilterSpec'), pd: getVals('globalFilterProduct'), dr: getVals('filterDealerRegion'), pr: getVals('filterProjectRegion') };
+            return { y: getVals('filterYear'), m: getVals('filterMonth'), cg: getVals('filterCG'), sr: getVals('filterSR'), sp: getVals('globalFilterSpec'), pd: getVals('globalFilterProduct'), dr: getVals('filterDealerRegion'), pr: getVals('filterProjectRegion'), on: getVals('filterOwnerNat'), pt: getVals('filterProjectType'), dl: getVals('filterDealer') };
         }
         function applyGlobalFilters(data) {
             let f = getFilterValues();
@@ -675,7 +681,10 @@
                 (f.sp.length===0 || f.sp.includes(String(r['Product Spec เดิม']||''))) &&
                 (f.pd.length===0 || f.pd.includes(String(r['Product']||''))) &&
                 (f.dr.length===0 || f.dr.includes(String(r['Dealer Region']||''))) &&
-                (f.pr.length===0 || f.pr.includes(String(r['Project Region']||'')))
+                (f.pr.length===0 || f.pr.includes(String(r['Project Region']||''))) &&
+                (f.on.length===0 || f.on.includes(String(r['Owner Nationality']||''))) &&
+                (f.pt.length===0 || f.pt.includes(String(r['ประเภทโครงการ']||''))) &&
+                (f.dl.length===0 || f.dl.includes(String(r['ร้านผู้แทนจำหน่าย']||'')))
             );
         }
         function getFilteredData() { if (filteredCache) return filteredCache; filteredCache = applyGlobalFilters(projectData); return filteredCache; }
@@ -688,14 +697,14 @@
         function renderFilterChips() {
             let container = document.getElementById('activeFilterChips'); if(!container) return;
             let f = getFilterValues(); let chips = [];
-            let mapping = { y:'Year', m:'Month', cg:'Customer', sr:'SR', sp:'Spec', pd:'Product', dr:'DealerReg', pr:'ProjectReg' };
+            let mapping = { y:'Year', m:'Month', cg:'Customer', sr:'SR', sp:'Spec', pd:'Product', dr:'DealerReg', pr:'ProjectReg', on:'Nationality', pt:'ProjType', dl:'Dealer' };
             Object.keys(f).forEach(k => { f[k].forEach(v => chips.push({key: k, label: mapping[k], val: v})); });
             if(chips.length === 0) { container.classList.add('hidden'); return; }
             container.classList.remove('hidden');
-            container.innerHTML = chips.map(c => `<span class="filter-chip">${c.label}: ${c.val}<span class="close" onclick="removeFilterChip('${c.key}', '${c.val.replace(/'/g,"\\'")}')"><i class="fas fa-times"></i></span></span>`).join('');
+            container.innerHTML = chips.map(c => `<span class="filter-chip">${c.label}: ${c.val}<span class="close" onclick="removeFilterChip('${c.key}', '${String(c.val).replace(/'/g,"\\'")}')"><i class="fas fa-times"></i></span></span>`).join('');
         }
         function removeFilterChip(key, val) {
-            let mapping = { y:'filterYear', m:'filterMonth', cg:'filterCG', sr:'filterSR', sp:'globalFilterSpec', pd:'globalFilterProduct', dr:'filterDealerRegion', pr:'filterProjectRegion' };
+            let mapping = { y:'filterYear', m:'filterMonth', cg:'filterCG', sr:'filterSR', sp:'globalFilterSpec', pd:'globalFilterProduct', dr:'filterDealerRegion', pr:'filterProjectRegion', on:'filterOwnerNat', pt:'filterProjectType', dl:'filterDealer' };
             let el = document.getElementById(mapping[key]);
             if(el) Array.from(el.options).forEach(o => { if(o.value === val) o.selected = false; });
             updateCharts();
@@ -953,11 +962,28 @@
         async function clearData() { if(confirm("ล้างข้อมูลทั้งหมดใช่หรือไม่?")) { projectData = []; invalidateCache(); await saveToLocalStorage(); updateDataLists(); renderTable(); updateFilterDropdowns(); updateCharts(); showToast("ล้างข้อมูลสำเร็จ", 'success'); } }
         function exportToExcel() { let pass = prompt("กรุณากรอกรหัสผ่านเพื่อยืนยันการส่งออกข้อมูล Excel:"); if (pass === null) return; if (pass !== "Guide081#") { showToast("รหัสผ่านไม่ถูกต้อง", 'error'); return; } if (projectData.length === 0) { showToast("ไม่มีข้อมูลสำหรับส่งออก", 'error'); return; } let exportData = projectData.map(row => { let newRow = {}; allFields.forEach(f => { newRow[f] = row[f] || ""; }); return newRow; }); try { const ws = XLSX.utils.json_to_sheet(exportData); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "ProjectData"); let d = new Date(); XLSX.writeFile(wb, `Sales_Data_${d.getFullYear()}${(d.getMonth()+1).toString().padStart(2,'0')}${d.getDate().toString().padStart(2,'0')}.xlsx`); showToast('Export สำเร็จ', 'success'); } catch(e) { showToast("Export ผิดพลาด", 'error'); } }
         function exportTableToExcel(tableId, filenamePrefix) { let table = document.getElementById(tableId); if (!table) return; try { let wb = XLSX.utils.book_new(); let ws = XLSX.utils.table_to_sheet(table); XLSX.utils.book_append_sheet(wb, ws, "Data"); XLSX.writeFile(wb, `${filenamePrefix}_Export.xlsx`); showToast('Export Excel สำเร็จ', 'success'); } catch(e) { showToast("Export ผิดพลาด", 'error'); } }
-        const getExportOptions = (elementId) => ({ scale: 3, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', logging: false, onclone: (clonedDoc) => { let el = clonedDoc.getElementById(elementId); if(el) { el.style.width = 'max-content'; el.style.minWidth = '100%'; let scrolls = el.querySelectorAll('.overflow-x-auto, .overflow-y-auto, .overflow-hidden'); scrolls.forEach(n => { n.classList.remove('overflow-x-auto', 'overflow-y-auto', 'overflow-hidden'); n.style.overflow = 'visible'; }); let stickies = el.querySelectorAll('.sticky, .sticky-col'); stickies.forEach(n => { n.style.position = 'static'; n.classList.remove('sticky', 'sticky-col'); n.style.boxShadow = 'none'; }); let btns = el.querySelectorAll('.export-buttons button, .no-export'); btns.forEach(btn => btn.style.display = 'none'); let links = el.querySelectorAll('.table-link'); links.forEach(a => { let span = document.createElement('span'); span.innerHTML = a.innerHTML; span.className = a.className; span.classList.remove('table-link', 'hover:underline', 'cursor-pointer'); a.parentNode.replaceChild(span, a); }); } } });
-        async function exportSectionAsImage(elementId, filenamePrefix, btnEvent) { let el = document.getElementById(elementId); if(!el) return; let btn = btnEvent; let oldHtml = ''; if(btn) { oldHtml = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; btn.disabled = true; } try { const canvas = await html2canvas(el, getExportOptions(elementId)); const link = document.createElement('a'); link.download = filenamePrefix + '_' + Date.now() + '.jpg'; link.href = canvas.toDataURL('image/jpeg', 1.0); link.click(); showToast('Export รูปคุณภาพสูงสำเร็จ', 'success'); } catch(e) { showToast("Export รูปผิดพลาด", 'error'); } finally { if(btn) { btn.innerHTML = oldHtml; btn.disabled = false; } } }
+        const getExportOptions = (elementId) => ({ scale: 3, useCORS: true, allowTaint: true, backgroundColor: '#ffffff', logging: false, onclone: (clonedDoc) => { let el = clonedDoc.getElementById(elementId); if(el) { el.style.width = 'max-content'; el.style.minWidth = '100%'; el.style.maxHeight = 'none'; el.style.height = 'auto'; let scrolls = el.querySelectorAll('.overflow-x-auto, .overflow-y-auto, .overflow-hidden, .overflow-auto'); scrolls.forEach(n => { n.classList.remove('overflow-x-auto', 'overflow-y-auto', 'overflow-hidden', 'overflow-auto'); n.style.overflow = 'visible'; n.style.maxHeight = 'none'; }); let stickies = el.querySelectorAll('.sticky, .sticky-col'); stickies.forEach(n => { n.style.position = 'static'; n.classList.remove('sticky', 'sticky-col'); n.style.boxShadow = 'none'; }); let btns = el.querySelectorAll('.export-buttons button, .no-export'); btns.forEach(btn => btn.style.display = 'none'); let links = el.querySelectorAll('.table-link'); links.forEach(a => { let span = document.createElement('span'); span.innerHTML = a.innerHTML; span.className = a.className; span.classList.remove('table-link', 'hover:underline', 'cursor-pointer'); a.parentNode.replaceChild(span, a); }); } } });
+        async function exportSectionAsImage(elementId, filenamePrefix, btnEvent) { let el = document.getElementById(elementId); if(!el) return showToast("ไม่พบข้อมูลสำหรับส่งออก", 'error'); let btn = btnEvent; let oldHtml = ''; if(btn) { oldHtml = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; btn.disabled = true; } try { const canvas = await html2canvas(el, getExportOptions(elementId)); const link = document.createElement('a'); link.download = filenamePrefix + '_' + Date.now() + '.jpg'; link.href = canvas.toDataURL('image/jpeg', 1.0); link.click(); showToast('Export รูปคุณภาพสูงสำเร็จ', 'success'); } catch(e) { showToast("Export รูปผิดพลาด", 'error'); } finally { if(btn) { btn.innerHTML = oldHtml; btn.disabled = false; } } }
         function exportChartOnly(chartId, filename) {
             let canvas = document.getElementById(chartId); if (!canvas) return showToast("ไม่พบข้อมูลกราฟ", 'error');
             try { let tempCanvas = document.createElement('canvas'); let sf = 3; tempCanvas.width = canvas.width * sf; tempCanvas.height = canvas.height * sf; let ctx = tempCanvas.getContext('2d'); ctx.scale(sf, sf); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.drawImage(canvas, 0, 0, canvas.width, canvas.height); let link = document.createElement('a'); link.download = filename + '_' + Date.now() + '.jpg'; link.href = tempCanvas.toDataURL('image/jpeg', 1.0); link.click(); showToast('ดาวน์โหลดกราฟสำเร็จ', 'success'); } catch(e) { showToast("ดาวน์โหลดผิดพลาด", 'error'); }
+        }
+        // ===== Export Chart + Panel รวมกัน (คุณภาพสูง) =====
+        async function exportChartWithPanel(chartType, btnEvent) {
+            let wrapperId = 'interactiveWrap_' + chartType;
+            let el = document.getElementById(wrapperId);
+            if(!el) return showToast("ไม่พบข้อมูลสำหรับส่งออก", 'error');
+            let btn = btnEvent; let oldHtml = '';
+            if(btn) { oldHtml = btn.innerHTML; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; btn.disabled = true; }
+            try {
+                const canvas = await html2canvas(el, getExportOptions(wrapperId));
+                const link = document.createElement('a');
+                link.download = 'InteractiveChart_' + chartType + '_' + Date.now() + '.jpg';
+                link.href = canvas.toDataURL('image/jpeg', 1.0);
+                link.click();
+                showToast('Export กราฟ + รายละเอียด สำเร็จ', 'success');
+            } catch(e) { showToast("Export รูปผิดพลาด", 'error'); }
+            finally { if(btn) { btn.innerHTML = oldHtml; btn.disabled = false; } }
         }
         async function importFromExcel(event) {
             let file = event.target.files[0]; if(!file) return; let reader = new FileReader();
@@ -975,13 +1001,15 @@
                 event.target.value = "";
             }; reader.readAsArrayBuffer(file);
         }
+        // ===== FILTER DROPDOWNS (with 3 new filters) =====
         function updateFilterDropdowns() {
-            let ids = ['filterYear','filterMonth','filterCG','filterSR','globalFilterSpec','globalFilterProduct','filterDealerRegion','filterProjectRegion'];
-            let els = ids.map(id => document.getElementById(id)).filter(e => e); let vals = els.map(e => Array.from(e.selectedOptions).map(o=>o.value));
-            let sets = Array(8).fill().map(()=>new Set());
-            let keys = ['ปี','เดือน','Customer Group','SR Resp.','Product Spec เดิม','Product','Dealer Region','Project Region'];
+            let ids = ['filterYear','filterMonth','filterCG','filterSR','globalFilterSpec','globalFilterProduct','filterDealerRegion','filterProjectRegion','filterOwnerNat','filterProjectType','filterDealer'];
+            let keys = ['ปี','เดือน','Customer Group','SR Resp.','Product Spec เดิม','Product','Dealer Region','Project Region','Owner Nationality','ประเภทโครงการ','ร้านผู้แทนจำหน่าย'];
+            let els = ids.map(id => document.getElementById(id));
+            let vals = els.map(e => e ? Array.from(e.selectedOptions).map(o=>o.value) : []);
+            let sets = keys.map(()=>new Set());
             projectData.forEach(r => { keys.forEach((k,i) => { if(r[k] != null && String(r[k]).trim() !== '') sets[i].add(String(r[k]).trim()); }); });
-            els.forEach((e, i) => { let arr = Array.from(sets[i]); if(i === 1) arr.sort(sortMonthsChronologically); else arr.sort(); e.innerHTML = arr.map(v => `<option value="${v}">${v}</option>`).join(''); Array.from(e.options).forEach(opt => { if(vals[i].includes(opt.value)) opt.selected = true; }); });
+            els.forEach((e, i) => { if(!e) return; let arr = Array.from(sets[i]); if(keys[i] === 'เดือน') arr.sort(sortMonthsChronologically); else arr.sort(); e.innerHTML = arr.map(v => `<option value="${v}">${v}</option>`).join(''); Array.from(e.options).forEach(opt => { if(vals[i].includes(opt.value)) opt.selected = true; }); });
         }
 
         function makeClickable(val, source, region, status, monthIdx, ssYear, overrideClass = '') { if (val <= 0) return '-'; let strVal = val.toLocaleString(undefined, {maximumFractionDigits:2}); let safeReg = region.replace(/'/g, "\\'"); let safeStat = status.replace(/'/g, "\\'"); let mArg = monthIdx === 'total' ? "'total'" : monthIdx; let defaultClass = overrideClass ? overrideClass : 'text-slate-700 hover:text-blue-600'; return `<a href="javascript:void(0)" onclick="openTableDrilldown('${source}', '${safeReg}', '${safeStat}', ${mArg}, '${ssYear}')" class="table-link ${defaultClass}">${strVal}</a>`; }
@@ -1008,7 +1036,7 @@
                 if (status !== 'ALL') d = d.filter(r => normalizeStatus(r['Sales Status']) === status);
                 if (monthIdx !== 'total') d = d.filter(r => { let ai = getMonthIndexFromLastUpdate(r); return (ai >= 0 && ai <= 11) ? (ai === monthIdx) : false; });
             }
-            let colsToShow = ['วันที่บันทึกข้อมูล', 'ชื่อโครงการ', 'จังหวัด', 'Project Region', 'SR Resp.', 'ผู้รับเหมา', 'ร้านผู้แทนจำหน่าย', 'Product Spec เดิม', 'Product', 'ชั้นคุณภาพ', 'ขนาด', 'Sales Status', 'Last updated date'];
+            let colsToShow = ['วันที่บันทึกข้อมูล', 'ชื่อโครงการ', 'จังหวัด', 'Project Region', 'Owner Nationality', 'ประเภทโครงการ', 'SR Resp.', 'ผู้รับเหมา', 'ร้านผู้แทนจำหน่าย', 'Product Spec เดิม', 'Product', 'ชั้นคุณภาพ', 'ขนาด', 'Sales Status', 'Last updated date'];
             let targetForecastField = null;
             if (source.startsWith('forecast_') && monthIdx !== 'total') targetForecastField = fieldsG5[monthIdx];
             else if ((source.startsWith('breakdown_') || status === 'Backlog') && monthIdx !== 'total') { if (source.startsWith('breakdown_')) targetForecastField = fieldsG5[monthIdx]; else { let mStr = engMonthsAbbr[monthIdx]; let yStr = (ssYear !== 'ALL' && ssYear !== 'all') ? ssYear : '2025'; targetForecastField = mStr + yStr; } }
@@ -1024,7 +1052,7 @@
         function showDrilldown(clickedStatus, targetField, dataArray) {
             let filtered = dataArray.filter(r => { let rStatus = r['Sales Status'] || 'Unspecified'; let match = (clickedStatus === 'Unspecified') ? (!r['Sales Status']) : (getColorForLabel(rStatus) === getColorForLabel(clickedStatus) ? true : rStatus === clickedStatus); let val = parseCleanNumber(r[targetField]); return match && val > 0; });
             document.getElementById('drilldownTitle').innerHTML = `<i class="fas fa-search-plus mr-2 text-blue-600"></i>Data Detail: ${targetField.split('/')[0]} (${clickedStatus}) <span class="text-sm font-normal text-slate-500 ml-2">(${filtered.length} records)</span>`;
-            let colsToShow = ['วันที่บันทึกข้อมูล', 'ชื่อโครงการ', 'จังหวัด', 'Project Region', 'SR Resp.', 'ผู้รับเหมา', 'ร้านผู้แทนจำหน่าย', 'Product Spec เดิม', 'Product', 'ชั้นคุณภาพ', 'ขนาด', 'Sales Status', 'Opp.รวม', 'Last updated date']; if (targetField !== 'Opp.รวม') colsToShow.push(targetField);
+            let colsToShow = ['วันที่บันทึกข้อมูล', 'ชื่อโครงการ', 'จังหวัด', 'Project Region', 'Owner Nationality', 'ประเภทโครงการ', 'SR Resp.', 'ผู้รับเหมา', 'ร้านผู้แทนจำหน่าย', 'Product Spec เดิม', 'Product', 'ชั้นคุณภาพ', 'ขนาด', 'Sales Status', 'Opp.รวม', 'Last updated date']; if (targetField !== 'Opp.รวม') colsToShow.push(targetField);
             document.getElementById('drilldownHead').innerHTML = `<tr>${colsToShow.map(c => `<th>${c}</th>`).join('')}</tr>`;
             let html = filtered.map(r => `<tr class="hover:bg-blue-50 transition">${colsToShow.map(c => { let v = r[c] || '-'; if(c === 'Opp.รวม' || c === targetField) { v = fmtNum(parseCleanNumber(v)); return `<td class="font-bold text-right text-blue-700">${v}</td>`; } if(['วันที่บันทึกข้อมูล', 'Last updated date'].includes(c)) v = formatDisplayDate(v, 'DD/MM/YYYY'); if(c === 'Sales Status' && v !== '-') v = statusBadge(v); return `<td>${v}</td>`; }).join('')}</tr>`).join('');
             if(filtered.length === 0) html = `<tr><td colspan="${colsToShow.length}" class="empty-state"><i class="fas fa-inbox"></i><p>No data available</p></td></tr>`;
@@ -1045,41 +1073,27 @@
             chartInstances[canvasId] = new Chart(el, { type: 'line', data: { labels, datasets }, options, plugins: [customBg] });
         }
 
-        // ================== YEARLY ANALYSIS DATA HELPER ==================
+        // ================== YEARLY ANALYSIS ==================
         function computeYearlyAnalysis(chartType) {
             let store = regionalDataStore[chartType];
             if (!store) return null;
             let regionSel = document.getElementById('sel_' + chartType);
             let regionVal = regionSel ? regionSel.value : 'ALL';
-
-            // ดึงข้อมูลรายเดือน (Core Statuses)
             let coreData = { 'Win': Array(12).fill(0), 'Follow': Array(12).fill(0), 'High Potential': Array(12).fill(0), 'Loss': Array(12).fill(0) };
             let source = regionVal === 'ALL' ? store.grandStatusMap : (store.statusMap[regionVal] || {});
-            CORE_STATUSES.forEach(st => {
-                if (source[st]) {
-                    for (let i = 0; i < 12; i++) coreData[st][i] = source[st][i] || 0;
-                }
-            });
-
-            // Backlog data
+            CORE_STATUSES.forEach(st => { if (source[st]) { for (let i = 0; i < 12; i++) coreData[st][i] = source[st][i] || 0; } });
             let backlogData;
             if (regionVal === 'ALL' && store.grandBacklog && store.grandBacklog.some(v => v > 0)) backlogData = store.grandBacklog;
             else if (store.backlogMap && store.backlogMap[regionVal]) backlogData = store.backlogMap[regionVal];
             if (!backlogData || !backlogData.some(v => v > 0)) backlogData = computeBacklogForChart(chartType, regionVal);
-
-            // Total ทั้งปี
             let totals = {};
             CORE_STATUSES.forEach(st => totals[st] = coreData[st].reduce((a,b) => a+b, 0));
             let grandTotal = totals['Win'] + totals['Follow'] + totals['High Potential'] + totals['Loss'];
             let backlogTotal = backlogData.reduce((a,b) => a+b, 0);
-
-            // Peak month & lowest month
             let monthlyTotals = Array(12).fill(0);
             for (let i = 0; i < 12; i++) monthlyTotals[i] = coreData['Win'][i] + coreData['Follow'][i] + coreData['High Potential'][i] + coreData['Loss'][i];
             let peakIdx = 0, lowIdx = 0;
             for (let i = 1; i < 12; i++) { if (monthlyTotals[i] > monthlyTotals[peakIdx]) peakIdx = i; if (monthlyTotals[i] < monthlyTotals[lowIdx] || (monthlyTotals[lowIdx] === 0 && monthlyTotals[i] > 0)) lowIdx = i; }
-
-            // Rate calc
             let winRate = grandTotal > 0 ? (totals['Win']/grandTotal*100) : 0;
             let lossRate = grandTotal > 0 ? (totals['Loss']/grandTotal*100) : 0;
             let followRate = grandTotal > 0 ? (totals['Follow']/grandTotal*100) : 0;
@@ -1087,16 +1101,11 @@
             let pipeRate = followRate + hpRate;
             let closedTotal = totals['Win'] + totals['Loss'];
             let convRate = closedTotal > 0 ? (totals['Win']/closedTotal*100) : 0;
-
-            // Trend (comparing H2 vs H1)
             let h1Sum = monthlyTotals.slice(0,6).reduce((a,b)=>a+b, 0);
             let h2Sum = monthlyTotals.slice(6,12).reduce((a,b)=>a+b, 0);
             let hGrowth = h1Sum > 0 ? ((h2Sum-h1Sum)/h1Sum*100) : (h2Sum > 0 ? 100 : 0);
-
-            // Active months count
             let activeMonths = monthlyTotals.filter(v => v > 0).length;
             let avgMonthly = activeMonths > 0 ? grandTotal/activeMonths : 0;
-
             return { regionVal, totals, grandTotal, backlogTotal, coreData, backlogData, monthlyTotals, peakIdx, lowIdx, winRate, lossRate, followRate, hpRate, pipeRate, convRate, h1Sum, h2Sum, hGrowth, activeMonths, avgMonthly };
         }
 
@@ -1105,21 +1114,17 @@
             if (!el) return;
             let a = computeYearlyAnalysis(chartType);
             if (!a || a.grandTotal === 0) { el.innerHTML = `<div class="yearly-panel"><div class="text-center py-6 text-slate-400"><i class="fas fa-chart-area text-3xl mb-2"></i><p class="text-xs">ยังไม่มีข้อมูลเพียงพอสำหรับวิเคราะห์ทั้งปี</p></div></div>`; return; }
-
             let regionLabel = a.regionVal === 'ALL' ? 'ทุกภาค' : a.regionVal;
             let trendIcon = a.hGrowth >= 10 ? '<i class="fas fa-arrow-trend-up trend-up"></i>' : a.hGrowth <= -10 ? '<i class="fas fa-arrow-trend-down trend-down"></i>' : '<i class="fas fa-minus trend-flat"></i>';
             let trendColor = a.hGrowth >= 0 ? 'text-emerald-700' : 'text-red-700';
             let peakMonth = engMonthsAbbr[a.peakIdx];
             let lowMonth = engMonthsAbbr[a.lowIdx];
-
-            // Insight text
             let insight = '';
             if (a.winRate >= 40 && a.convRate >= 50) insight = '✅ ผลงานดีเยี่ยม อัตราชนะและการปิดขายอยู่ในเกณฑ์สูง';
             else if (a.winRate >= 25) insight = '👍 ผลงานอยู่ในเกณฑ์ดี ควรรักษาโมเมนตัมและเร่งปิด Pipeline';
             else if (a.pipeRate >= 40) insight = '⚠️ มี Pipeline มาก แต่ Win Rate ต่ำ ควรเน้นการปิดการขาย';
             else if (a.lossRate >= 30) insight = '🚨 Loss Rate สูง ควรทบทวนกลยุทธ์และวิเคราะห์เหตุผลการเสียงาน';
             else insight = '📊 ควรเพิ่มปริมาณ Pipeline และเร่งปิดการขาย';
-
             el.innerHTML = `
             <div class="yearly-panel" id="yearly_export_${chartType}">
                 <div class="flex justify-between items-center mb-3 pb-2 border-b border-blue-200">
@@ -1129,71 +1134,23 @@
                     </div>
                     <button onclick="exportSectionAsImage('yearly_export_${chartType}', 'YearlyAnalysis_${chartType}', this)" class="no-export bg-white hover:bg-blue-50 text-blue-600 border border-blue-200 px-3 py-1.5 rounded-lg text-xs font-semibold shadow-sm transition flex items-center gap-1.5"><i class="fas fa-image"></i> Export HD</button>
                 </div>
-
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
-                    <div class="yearly-stat border-l-4 border-emerald-500">
-                        <p class="text-[9px] font-bold text-emerald-700 uppercase">Win Total</p>
-                        <p class="text-base font-extrabold text-emerald-700">${fmtNumZ(a.totals['Win'])}</p>
-                        <p class="text-[10px] text-slate-500">${a.winRate.toFixed(1)}% ของ Total</p>
-                    </div>
-                    <div class="yearly-stat border-l-4 border-sky-500">
-                        <p class="text-[9px] font-bold text-sky-700 uppercase">High Potential</p>
-                        <p class="text-base font-extrabold text-sky-700">${fmtNumZ(a.totals['High Potential'])}</p>
-                        <p class="text-[10px] text-slate-500">${a.hpRate.toFixed(1)}% ของ Total</p>
-                    </div>
-                    <div class="yearly-stat border-l-4 border-amber-500">
-                        <p class="text-[9px] font-bold text-amber-700 uppercase">Follow Total</p>
-                        <p class="text-base font-extrabold text-amber-700">${fmtNumZ(a.totals['Follow'])}</p>
-                        <p class="text-[10px] text-slate-500">${a.followRate.toFixed(1)}% ของ Total</p>
-                    </div>
-                    <div class="yearly-stat border-l-4 border-red-500">
-                        <p class="text-[9px] font-bold text-red-700 uppercase">Loss Total</p>
-                        <p class="text-base font-extrabold text-red-700">${fmtNumZ(a.totals['Loss'])}</p>
-                        <p class="text-[10px] text-slate-500">${a.lossRate.toFixed(1)}% ของ Total</p>
-                    </div>
+                    <div class="yearly-stat border-l-4 border-emerald-500"><p class="text-[9px] font-bold text-emerald-700 uppercase">Win Total</p><p class="text-base font-extrabold text-emerald-700">${fmtNumZ(a.totals['Win'])}</p><p class="text-[10px] text-slate-500">${a.winRate.toFixed(1)}% ของ Total</p></div>
+                    <div class="yearly-stat border-l-4 border-sky-500"><p class="text-[9px] font-bold text-sky-700 uppercase">High Potential</p><p class="text-base font-extrabold text-sky-700">${fmtNumZ(a.totals['High Potential'])}</p><p class="text-[10px] text-slate-500">${a.hpRate.toFixed(1)}% ของ Total</p></div>
+                    <div class="yearly-stat border-l-4 border-amber-500"><p class="text-[9px] font-bold text-amber-700 uppercase">Follow Total</p><p class="text-base font-extrabold text-amber-700">${fmtNumZ(a.totals['Follow'])}</p><p class="text-[10px] text-slate-500">${a.followRate.toFixed(1)}% ของ Total</p></div>
+                    <div class="yearly-stat border-l-4 border-red-500"><p class="text-[9px] font-bold text-red-700 uppercase">Loss Total</p><p class="text-base font-extrabold text-red-700">${fmtNumZ(a.totals['Loss'])}</p><p class="text-[10px] text-slate-500">${a.lossRate.toFixed(1)}% ของ Total</p></div>
                 </div>
-
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
-                    <div class="yearly-stat bg-gradient-to-br from-emerald-50 to-white">
-                        <p class="text-[9px] font-bold text-emerald-700 uppercase"><i class="fas fa-layer-group mr-1"></i>Backlog Total</p>
-                        <p class="text-base font-extrabold text-emerald-800">${fmtNumZ(a.backlogTotal)}</p>
-                        <p class="text-[10px] text-slate-500">ยอดรับงาน Win ทั้งปี</p>
-                    </div>
-                    <div class="yearly-stat bg-gradient-to-br from-amber-50 to-white">
-                        <p class="text-[9px] font-bold text-amber-700 uppercase"><i class="fas fa-hourglass-half mr-1"></i>Follow Pipeline</p>
-                        <p class="text-base font-extrabold text-amber-800">${fmtNumZ(a.totals['Follow'])}</p>
-                        <p class="text-[10px] text-slate-500">รอติดตามทั้งปี</p>
-                    </div>
-                    <div class="yearly-stat bg-gradient-to-br from-blue-50 to-white">
-                        <p class="text-[9px] font-bold text-blue-700 uppercase"><i class="fas fa-exchange-alt mr-1"></i>Conversion</p>
-                        <p class="text-base font-extrabold text-blue-700">${a.convRate.toFixed(1)}%</p>
-                        <p class="text-[10px] text-slate-500">Win / (Win+Loss)</p>
-                    </div>
-                    <div class="yearly-stat bg-gradient-to-br from-purple-50 to-white">
-                        <p class="text-[9px] font-bold text-purple-700 uppercase"><i class="fas fa-chart-bar mr-1"></i>Avg/Month</p>
-                        <p class="text-base font-extrabold text-purple-700">${fmtNumZ(a.avgMonthly)}</p>
-                        <p class="text-[10px] text-slate-500">เฉลี่ย ${a.activeMonths} เดือน</p>
-                    </div>
+                    <div class="yearly-stat bg-gradient-to-br from-emerald-50 to-white"><p class="text-[9px] font-bold text-emerald-700 uppercase"><i class="fas fa-layer-group mr-1"></i>Backlog Total</p><p class="text-base font-extrabold text-emerald-800">${fmtNumZ(a.backlogTotal)}</p><p class="text-[10px] text-slate-500">ยอดรับงาน Win ทั้งปี</p></div>
+                    <div class="yearly-stat bg-gradient-to-br from-amber-50 to-white"><p class="text-[9px] font-bold text-amber-700 uppercase"><i class="fas fa-hourglass-half mr-1"></i>Follow Pipeline</p><p class="text-base font-extrabold text-amber-800">${fmtNumZ(a.totals['Follow'])}</p><p class="text-[10px] text-slate-500">รอติดตามทั้งปี</p></div>
+                    <div class="yearly-stat bg-gradient-to-br from-blue-50 to-white"><p class="text-[9px] font-bold text-blue-700 uppercase"><i class="fas fa-exchange-alt mr-1"></i>Conversion</p><p class="text-base font-extrabold text-blue-700">${a.convRate.toFixed(1)}%</p><p class="text-[10px] text-slate-500">Win / (Win+Loss)</p></div>
+                    <div class="yearly-stat bg-gradient-to-br from-purple-50 to-white"><p class="text-[9px] font-bold text-purple-700 uppercase"><i class="fas fa-chart-bar mr-1"></i>Avg/Month</p><p class="text-base font-extrabold text-purple-700">${fmtNumZ(a.avgMonthly)}</p><p class="text-[10px] text-slate-500">เฉลี่ย ${a.activeMonths} เดือน</p></div>
                 </div>
-
                 <div class="grid grid-cols-2 md:grid-cols-3 gap-2 mb-3">
-                    <div class="bg-white p-2.5 rounded-lg border border-slate-200">
-                        <p class="text-[9px] font-bold text-slate-500 uppercase"><i class="fas fa-arrow-up text-emerald-500 mr-1"></i>Peak Month</p>
-                        <p class="text-sm font-extrabold text-slate-800">${peakMonth}</p>
-                        <p class="text-[10px] text-emerald-700 font-semibold">${fmtNumZ(a.monthlyTotals[a.peakIdx])} Sq.m.</p>
-                    </div>
-                    <div class="bg-white p-2.5 rounded-lg border border-slate-200">
-                        <p class="text-[9px] font-bold text-slate-500 uppercase"><i class="fas fa-arrow-down text-red-500 mr-1"></i>Lowest Month</p>
-                        <p class="text-sm font-extrabold text-slate-800">${lowMonth}</p>
-                        <p class="text-[10px] text-red-700 font-semibold">${fmtNumZ(a.monthlyTotals[a.lowIdx])} Sq.m.</p>
-                    </div>
-                    <div class="bg-white p-2.5 rounded-lg border border-slate-200">
-                        <p class="text-[9px] font-bold text-slate-500 uppercase">${trendIcon} H2 vs H1 Trend</p>
-                        <p class="text-sm font-extrabold ${trendColor}">${a.hGrowth >= 0 ? '+' : ''}${a.hGrowth.toFixed(1)}%</p>
-                        <p class="text-[10px] text-slate-500">H1: ${fmtNumZ(a.h1Sum)} → H2: ${fmtNumZ(a.h2Sum)}</p>
-                    </div>
+                    <div class="bg-white p-2.5 rounded-lg border border-slate-200"><p class="text-[9px] font-bold text-slate-500 uppercase"><i class="fas fa-arrow-up text-emerald-500 mr-1"></i>Peak Month</p><p class="text-sm font-extrabold text-slate-800">${peakMonth}</p><p class="text-[10px] text-emerald-700 font-semibold">${fmtNumZ(a.monthlyTotals[a.peakIdx])} Sq.m.</p></div>
+                    <div class="bg-white p-2.5 rounded-lg border border-slate-200"><p class="text-[9px] font-bold text-slate-500 uppercase"><i class="fas fa-arrow-down text-red-500 mr-1"></i>Lowest Month</p><p class="text-sm font-extrabold text-slate-800">${lowMonth}</p><p class="text-[10px] text-red-700 font-semibold">${fmtNumZ(a.monthlyTotals[a.lowIdx])} Sq.m.</p></div>
+                    <div class="bg-white p-2.5 rounded-lg border border-slate-200"><p class="text-[9px] font-bold text-slate-500 uppercase">${trendIcon} H2 vs H1 Trend</p><p class="text-sm font-extrabold ${trendColor}">${a.hGrowth >= 0 ? '+' : ''}${a.hGrowth.toFixed(1)}%</p><p class="text-[10px] text-slate-500">H1: ${fmtNumZ(a.h1Sum)} → H2: ${fmtNumZ(a.h2Sum)}</p></div>
                 </div>
-
                 <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 rounded-lg border border-blue-200">
                     <p class="text-[10px] font-bold text-blue-800 uppercase mb-1"><i class="fas fa-lightbulb text-amber-500 mr-1"></i>Executive Insight</p>
                     <p class="text-xs text-slate-700 leading-relaxed">${insight}</p>
@@ -1201,7 +1158,7 @@
             </div>`;
         }
 
-        // ================== INTERACTIVE PANEL (with Cumulative Follow) ==================
+        // ================== INTERACTIVE PANEL ==================
         function updateGraphSummaryPanel(chartType, clickedLabel, monthLabel, monthIndex, datasets, clickedColor) {
             let panel = document.getElementById('panel_' + chartType); if(!panel) return;
             let stHtml = '', mTotal = 0, coreMonthTotal = 0, otherHtml = '';
@@ -1219,7 +1176,6 @@
                 mTotal += val;
             });
 
-            // ===== Backlog Data =====
             let backlogData = null;
             let store = regionalDataStore[chartType];
             let regionSel = document.getElementById('sel_' + chartType);
@@ -1234,28 +1190,27 @@
             let backlogDsInChart = datasets.find(d => d.label && d.label.toLowerCase().includes('backlog'));
             let backlogColor = backlogDsInChart ? backlogDsInChart.borderColor : '#0f766e';
 
-            // ===== Follow Data =====
             let followData = followDataFromChart;
             if (!followData) {
-                // ดึง Follow จาก store
                 if (regionVal === 'ALL' && store && store.grandStatusMap && store.grandStatusMap['Follow']) followData = store.grandStatusMap['Follow'];
                 else if (store && store.statusMap && store.statusMap[regionVal] && store.statusMap[regionVal]['Follow']) followData = store.statusMap[regionVal]['Follow'];
             }
             if (!followData) followData = Array(12).fill(0);
 
-            // Cumulative Backlog
             let bMonthVal = backlogData[monthIndex] || 0;
             let bCumulative = 0, bYearTotal = 0;
             for (let i = monthIndex; i < 12; i++) bCumulative += (backlogData[i] || 0);
             for (let i = 0; i < 12; i++) bYearTotal += (backlogData[i] || 0);
 
-            // Cumulative Follow
             let fMonthVal = followData[monthIndex] || 0;
             let fCumulative = 0, fYearTotal = 0;
             for (let i = monthIndex; i < 12; i++) fCumulative += (followData[i] || 0);
             for (let i = 0; i < 12; i++) fYearTotal += (followData[i] || 0);
 
-            // Composition
+            let combMonth = bMonthVal + fMonthVal;
+            let combCumulative = bCumulative + fCumulative;
+            let combYear = bYearTotal + fYearTotal;
+
             let winVal = 0, lossVal = 0, followVal = 0, hpVal = 0;
             coreDs.forEach(ds => { let v = ds.data[monthIndex] || 0; if(ds.label === 'Win') winVal = v; else if(ds.label === 'Loss') lossVal = v; else if(ds.label === 'Follow') followVal = v; else if(ds.label === 'High Potential') hpVal = v; });
             let winPct = coreMonthTotal > 0 ? (winVal/coreMonthTotal*100).toFixed(1) : 0;
@@ -1263,11 +1218,18 @@
             let pipePct = coreMonthTotal > 0 ? ((followVal+hpVal)/coreMonthTotal*100).toFixed(1) : 0;
             let closedTotal = winVal + lossVal;
             let convRate = closedTotal > 0 ? (winVal/closedTotal*100).toFixed(1) : 0;
+            let regionLabel = regionVal === 'ALL' ? 'ทุกภาค' : regionVal;
 
             panel.innerHTML = `<div class="w-full text-left animate-fade bg-white p-3 rounded-lg border border-slate-100 shadow-inner" id="export_panel_${chartType}">
-                <div class="border-b border-slate-200 pb-2 mb-3 flex justify-between items-center">
-                    <h5 class="font-bold text-slate-800 text-xs flex items-center"><i class="fas fa-calendar-day text-blue-600 mr-1.5"></i>Month: ${monthLabel}</h5>
-                    <button onclick="exportSectionAsImage('export_panel_${chartType}', 'Status_Breakdown_${chartType}', this)" class="no-export text-slate-400 hover:text-blue-600 transition"><i class="fas fa-camera text-xs"></i></button>
+                <div class="border-b border-slate-200 pb-2 mb-3 flex justify-between items-center gap-2">
+                    <div>
+                        <h5 class="font-bold text-slate-800 text-xs flex items-center"><i class="fas fa-calendar-day text-blue-600 mr-1.5"></i>Month: ${monthLabel}</h5>
+                        <p class="text-[9px] text-slate-500 mt-0.5">Region: <span class="font-semibold text-indigo-700">${regionLabel}</span></p>
+                    </div>
+                    <div class="flex items-center gap-1 shrink-0">
+                        <button onclick="exportSectionAsImage('export_panel_${chartType}', 'Panel_${chartType}', this)" class="no-export panel-export-btn" title="ส่งออกเฉพาะรายละเอียด"><i class="fas fa-file-image"></i> Panel</button>
+                        <button onclick="exportChartWithPanel('${chartType}', this)" class="no-export panel-export-btn" style="background:linear-gradient(135deg,#059669 0%,#10b981 100%)" title="ส่งออกกราฟ + รายละเอียด"><i class="fas fa-images"></i> All</button>
+                    </div>
                 </div>
                 <div class="mb-3">
                     <p class="text-[9px] font-bold text-slate-400 uppercase mb-1">Core Status (Follow + High Potential + Loss + Win)</p>
@@ -1290,7 +1252,7 @@
                     </div>
                     ${bYearTotal === 0 ? '<p class="text-[10px] text-slate-500 italic mt-2">* ไม่พบข้อมูล Backlog</p>' : ''}
                 </div>
-                <div class="bg-amber-50/70 p-3 rounded border border-amber-100 border-l-4" style="border-left-color:#f59e0b">
+                <div class="bg-amber-50/70 p-3 rounded border border-amber-100 border-l-4 mb-2" style="border-left-color:#f59e0b">
                     <p class="text-[10px] font-extrabold text-amber-700 uppercase mb-2 flex items-center"><i class="fas fa-hourglass-half mr-1.5"></i>Cumulative Follow Total</p>
                     <div class="space-y-1.5">
                         <div class="flex justify-between text-[11px]"><span class="text-slate-600">${monthLabel} (Current Month):</span><span class="font-bold text-amber-800">${fmtNum(fMonthVal)}</span></div>
@@ -1298,6 +1260,14 @@
                         <div class="flex justify-between text-[11px]"><span class="text-slate-600">Full Year Follow:</span><span class="font-bold text-amber-800">${fmtNum(fYearTotal)}</span></div>
                     </div>
                     ${fYearTotal === 0 ? '<p class="text-[10px] text-slate-500 italic mt-2">* ไม่พบข้อมูล Follow</p>' : ''}
+                </div>
+                <div class="bg-gradient-to-br from-indigo-50 to-blue-50 p-3 rounded border-2 border-indigo-200">
+                    <p class="text-[10px] font-extrabold text-indigo-800 uppercase mb-2 flex items-center"><i class="fas fa-calculator mr-1.5"></i>Cumulative = Backlog + Follow</p>
+                    <div class="space-y-1.5">
+                        <div class="flex justify-between text-[11px]"><span class="text-slate-600">${monthLabel} (Current Month):</span><span class="font-bold text-indigo-800">${fmtNum(combMonth)}</span></div>
+                        <div class="flex justify-between text-[11px] pt-1 border-t border-indigo-200"><span class="text-slate-700 font-semibold">${monthLabel} → Dec (Remaining):</span><span class="font-extrabold text-indigo-900 text-sm">${fmtNum(combCumulative)}</span></div>
+                        <div class="flex justify-between text-[11px]"><span class="text-slate-600">Full Year Combined:</span><span class="font-bold text-indigo-800">${fmtNum(combYear)}</span></div>
+                    </div>
                 </div>
             </div>`;
         }
@@ -1423,7 +1393,7 @@
         }
         function drawRegionalLineChart(chartType) {
             let sel = document.getElementById('sel_' + chartType); if(!sel) return; let val = sel.value; let store = regionalDataStore[chartType]; if(!store || !store.regions) return;
-            let panel = document.getElementById('panel_' + chartType); if(panel) panel.innerHTML = `<div class="text-center text-slate-400 flex flex-col items-center"><i class="fas fa-hand-pointer text-3xl mb-2 text-blue-200"></i><p class="text-[10px] font-medium uppercase tracking-wider text-slate-500">Interactive Chart</p><p class="text-xs text-slate-400 mt-1">คลิกจุดบนกราฟเพื่อดูรายละเอียด</p><p class="text-[9px] text-slate-400 mt-2 italic">Total = Follow + High Potential + Loss + Win</p><p class="text-[9px] text-emerald-600 mt-1 italic font-semibold"><i class="fas fa-layer-group mr-1"></i>Cumulative = Backlog Total + Follow Total</p></div>`;
+            let panel = document.getElementById('panel_' + chartType); if(panel) panel.innerHTML = `<div class="text-center text-slate-400 flex flex-col items-center"><i class="fas fa-hand-pointer text-3xl mb-2 text-blue-200"></i><p class="text-[10px] font-medium uppercase tracking-wider text-slate-500">Interactive Chart</p><p class="text-xs text-slate-400 mt-1">คลิกจุดบนกราฟเพื่อดูรายละเอียด</p><p class="text-[9px] text-slate-400 mt-2 italic">Total = Follow + High Potential + Loss + Win</p><p class="text-[9px] text-indigo-600 mt-1 italic font-semibold"><i class="fas fa-calculator mr-1"></i>Cumulative = Backlog Total + Follow Total</p><p class="text-[9px] text-blue-500 mt-2"><i class="fas fa-image mr-1"></i>คลิกเพื่อเปิดปุ่ม Export รูปภาพ</p></div>`;
             let datasets = []; let isCombined = chartType.includes('Combined');
             if (val === 'ALL') {
                 Object.keys(store.grandStatusMap).sort().forEach(st => datasets.push({ label: st, data: store.grandStatusMap[st], borderColor: getColorForLabel(st), backgroundColor: getColorForLabel(st), tension: 0.4, fill: false, borderWidth: 2, pointRadius: 3, pointHoverRadius: 6 }));
@@ -1435,7 +1405,6 @@
                 if (isCombined && store.targetMap && store.targetMap[val]) datasets.push({ label: 'Target', data: store.targetMap[val], borderColor: '#3b82f6', backgroundColor: '#3b82f6', borderDash: [5, 5], tension: 0.1, fill: false, borderWidth: 2.5, pointRadius: 4, pointHoverRadius: 6, pointStyle: 'rect' });
             }
             drawLineChart('chart_' + chartType, engMonthsAbbr, datasets, chartType);
-            // เรียก Yearly Analysis หลังจากวาดกราฟ
             setTimeout(() => renderYearlyAnalysis(chartType), 100);
         }
         function renderSalesStatusTable() {
@@ -1519,12 +1488,21 @@
                         </div>
                     </div>
                     <div class="w-full overflow-x-auto"><table class="w-full text-right enterprise-table" id="${cfg.key}Table"><thead><tr><th class="text-left sticky left-0 shadow-[inset_-1px_0_0_#e2e8f0] z-20 w-32 bg-slate-50">Region</th><th class="text-left sticky left-[128px] shadow-[inset_-1px_0_0_#e2e8f0] z-20 w-40 bg-slate-50">Status</th><th class="bg-slate-50">Jan</th><th class="bg-slate-50">Feb</th><th class="bg-slate-50">Mar</th><th class="bg-slate-50">Apr</th><th class="bg-slate-50">May</th><th class="bg-slate-50">Jun</th><th class="bg-slate-50">Jul</th><th class="bg-slate-50">Aug</th><th class="bg-slate-50">Sep</th><th class="bg-slate-50">Oct</th><th class="bg-slate-50">Nov</th><th class="bg-slate-50">Dec</th><th class="bg-slate-100 border-l border-slate-200">Total</th></tr></thead><tbody id="${cfg.key}TableBody"></tbody></table></div>
-                    <div class="p-4 bg-slate-50 border-t border-slate-200 flex flex-col lg:flex-row gap-4">
-                        <div class="w-full lg:w-3/4 h-[300px] bg-white border border-slate-200 rounded p-2 relative">
-                            <div class="absolute top-2 right-2 z-10"><button onclick="exportChartOnly('chart_${cfg.key}', '${cfg.key}_Trend')" class="bg-white/90 hover:bg-white text-slate-500 hover:text-blue-600 w-8 h-8 rounded-full flex items-center justify-center shadow-sm transition"><i class="fas fa-camera text-xs"></i></button></div>
-                            <canvas id="chart_${cfg.key}"></canvas>
+                    <div class="p-4 bg-slate-50 border-t border-slate-200" id="interactiveWrap_${cfg.key}">
+                        <div class="flex justify-between items-center mb-3 px-1">
+                            <h4 class="font-bold text-slate-700 text-xs uppercase tracking-wider flex items-center"><i class="fas fa-hand-pointer text-blue-600 mr-2"></i>Interactive Chart — ${cfg.title}</h4>
+                            <div class="flex items-center gap-1.5 no-export">
+                                <button onclick="exportChartOnly('chart_${cfg.key}', '${cfg.key}_Chart')" class="bg-white hover:bg-slate-50 text-slate-600 border border-slate-300 px-2.5 py-1.5 rounded text-[10px] font-bold transition flex items-center gap-1"><i class="fas fa-camera"></i> Chart</button>
+                                <button onclick="exportSectionAsImage('export_panel_${cfg.key}', 'Panel_${cfg.key}', this)" class="bg-white hover:bg-blue-50 text-blue-600 border border-blue-300 px-2.5 py-1.5 rounded text-[10px] font-bold transition flex items-center gap-1"><i class="fas fa-file-image"></i> Panel</button>
+                                <button onclick="exportChartWithPanel('${cfg.key}', this)" class="panel-export-btn" style="background:linear-gradient(135deg,#059669 0%,#10b981 100%); padding:6px 10px; font-size:10px;"><i class="fas fa-images"></i> Export All (HD)</button>
+                            </div>
                         </div>
-                        <div class="w-full lg:w-1/4 bg-white border border-slate-200 rounded p-4 flex flex-col justify-center relative min-h-[300px] overflow-y-auto max-h-[500px]" id="panel_${cfg.key}"></div>
+                        <div class="flex flex-col lg:flex-row gap-4">
+                            <div class="w-full lg:w-3/4 h-[300px] bg-white border border-slate-200 rounded p-2 relative">
+                                <canvas id="chart_${cfg.key}"></canvas>
+                            </div>
+                            <div class="w-full lg:w-1/4 bg-white border border-slate-200 rounded p-4 flex flex-col justify-center relative min-h-[300px] overflow-y-auto max-h-[560px]" id="panel_${cfg.key}"></div>
+                        </div>
                     </div>
                     <div class="p-4 border-t border-slate-200 bg-white" id="yearly_${cfg.key}"></div>
                 </div>`;
@@ -1791,7 +1769,7 @@
             weakRegions.forEach(([reg, v]) => risks.push({ icon:'fa-map-marker-alt', color:'red', title:`ภาค ${reg} ผลงานต่ำ`, desc: `Win Rate เพียง ${(v.win/v.total*100).toFixed(1)}% (Loss: ${fmtNum(v.loss)} Sq.m.) ควรทบทวนทีมงานและกลยุทธ์` }));
             if(bigPipe.length > 0) { let totBig = bigPipe.reduce((s,r) => s+getOppTotal(r), 0); risks.push({ icon:'fa-star', color:'amber', title:'โครงการใหญ่ที่รอปิด', desc: `${bigPipe.length} โครงการ Follow/HP มีมูลค่ารวม ${fmtNum(totBig)} Sq.m. ควรให้ความสำคัญเป็นพิเศษ` }); }
             let risksList = document.getElementById('risksList');
-            if(risks.length === 0) risksList.innerHTML = `<div class="empty-state"><i class="fas fa-shield-check text-emerald-500"></i><p class="text-emerald-700 font-medium">ไม่พบความเสี่ยงที่สำคัญ ธุรกิจอยู่ในเกณฑ์ดี</p></div>`;
+            if(risks.length === 0) risksList.innerHTML = `<div class="empty-state"><i class="fas fa-shield-alt text-emerald-500"></i><p class="text-emerald-700 font-medium">ไม่พบความเสี่ยงที่สำคัญ ธุรกิจอยู่ในเกณฑ์ดี</p></div>`;
             else risksList.innerHTML = risks.map(r => `<div class="exec-card exec-${r.color === 'red' ? 'bad' : 'warn'} bg-${r.color}-50/30 border border-${r.color}-100"><div class="flex items-start gap-3"><div class="w-9 h-9 rounded-lg bg-${r.color}-100 text-${r.color}-700 flex items-center justify-center shrink-0"><i class="fas ${r.icon}"></i></div><div><p class="text-sm font-bold text-${r.color}-900">${r.title}</p><p class="text-xs text-slate-600 mt-1">${r.desc}</p></div></div></div>`).join('');
             strongRegions.forEach(([reg, v]) => opps.push({ icon:'fa-map-marker-alt', color:'emerald', title:`ภาค ${reg} เป็นดาวเด่น`, desc: `Win Rate ${(v.win/v.total*100).toFixed(1)}% (Win: ${fmtNum(v.win)} Sq.m.) ควรถ่ายทอด Best Practices ไปยังภาคอื่น` }));
             strongProds.forEach(([p, v]) => { if(v.win > 0) opps.push({ icon:'fa-box', color:'blue', title:`${p.substring(0,30)} เป็นสินค้าเรือธง`, desc: `Win Rate ${(v.win/v.total*100).toFixed(1)}% ควรลงทุนโฆษณา/ส่งเสริมเพิ่ม` }); });
@@ -1819,7 +1797,7 @@
             else if(id === 'execTab') { setTimeout(() => { populateTargetFilters(); refreshExecutive(); }, 50); }
         }
         function resetFilters() {
-            ['filterYear','filterMonth','filterCG','filterSR','globalFilterSpec','globalFilterProduct','filterDealerRegion','filterProjectRegion'].forEach(id=>{ let el=document.getElementById(id); if(el) Array.from(el.options).forEach(o=>o.selected=false); });
+            ['filterYear','filterMonth','filterCG','filterSR','globalFilterSpec','globalFilterProduct','filterDealerRegion','filterProjectRegion','filterOwnerNat','filterProjectType','filterDealer'].forEach(id=>{ let el=document.getElementById(id); if(el) Array.from(el.options).forEach(o=>o.selected=false); });
             ['searchContractorInput','searchInput'].forEach(id => { let el = document.getElementById(id); if(el) el.value = ''; });
             let ssTbl = document.getElementById('ssTableYear'); if (ssTbl) ssTbl.value = "all";
             ['targetFilterYear','targetFilterRegion','targetFilterProduct','forecastFilterSpec'].forEach(id => { let el = document.getElementById(id); if(el) el.value = 'ALL'; });
